@@ -154,6 +154,19 @@ npm run ha:down     # 컨테이너 정지·삭제
 npm run screenshot
 ```
 
+실제 HA 대시보드 캡처 (`npm run ha:up`로 로컬 HA가 떠 있어야 하며,
+`.env`에 자격증명을 채워둬야 함):
+
+```bash
+cp .env.example .env   # HA_USER / HA_PASS 입력
+npm run screenshot:ha                       # 기본 타겟: /dashboard-test/0
+npm run screenshot:ha -- /lovelace/0        # 임의의 HA 경로
+```
+
+`.env`는 gitignore됨. 스크립트는 한 번 로그인 후 전체 페이지를 캡처하고,
+페이지에서 카드 element가 발견되면 `assets/preview.png`, `assets/preview-timer.png`도
+함께 갱신합니다.
+
 프로젝트 구조:
 
 ```text

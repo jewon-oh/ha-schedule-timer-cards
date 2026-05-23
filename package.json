@@ -13,6 +13,7 @@
     "dev": "http-server . -p 8080 --silent",
     "smoke": "node scripts/smoke.js",
     "screenshot": "node scripts/run-screenshot.js",
+    "screenshot:ha": "node scripts/screenshot-ha.js",
     "ha:up": "docker compose up -d",
     "ha:down": "docker compose down",
     "ha:logs": "docker compose logs -f homeassistant",

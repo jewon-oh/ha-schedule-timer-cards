@@ -2,6 +2,7 @@ node_modules/
 .claude/
 *.log
 .DS_Store
+.env
 
 # Local HA dev environment: keep configuration.yaml + bundled blueprints,
 # ignore the rest (HA runtime DB, storage/, secrets, logs)

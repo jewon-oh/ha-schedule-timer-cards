@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HA Custom Schedule Card Preview (v1.0.0)</title>
+  <title>HA Custom Schedule Card Preview (v1.4)</title>
   <style>
     body {
       background-color: #1c1c1c;
@@ -16,25 +16,18 @@
       align-items: flex-start;
       min-height: 100vh;
       --primary-color: #03a9f4;
-      --card-background-color: rgba(255,255,255,0.05);
-      --divider-color: rgba(255,255,255,0.1);
+      --card-background-color: rgba(255, 255, 255, 0.05);
+      --divider-color: rgba(255, 255, 255, 0.1);
       --primary-text-color: #ffffff;
       --secondary-text-color: #a0a0a0;
       --error-color: #f44336;
-      /* Custom properties used in the card */
-      --custom-background: #1e1e1e;
-      --custom-border: rgba(255, 255, 255, 0.1);
-      --custom-primary: #03a9f4;
-      --custom-hover: rgba(3, 169, 244, 0.1);
     }
-
     #preview-container {
       width: 100%;
       max-width: 500px;
       margin-top: 40px;
       padding: 20px;
     }
-
     .toolbar {
       background: rgba(255, 255, 255, 0.1);
       padding: 10px 20px;
@@ -44,8 +37,6 @@
       justify-content: space-between;
       align-items: center;
     }
-
-    /* Mock HA Icon setup */
     ha-icon { display: inline-block; width: 24px; height: 24px; }
   </style>
   <script type="module" src="../timer-schedule-card.js"></script>
@@ -59,119 +50,90 @@
         <option value="en">English (EN)</option>
       </select>
     </div>
-    
-    <!-- Render Card Here -->
     <ha-custom-schedule-card id="myCard"></ha-custom-schedule-card>
   </div>
 
   <script>
-    // Mock HA Icons
+    // ── Mock ha-icon (emoji fallback) ────────────────────────────────────
     class HaIcon extends HTMLElement {
       connectedCallback() {
-        const icon = this.getAttribute('icon');
+        const icon = this.getAttribute('icon') || '';
         let emoji = '⚙️';
         if (icon.includes('trash')) emoji = '🗑️';
         if (icon.includes('plus')) emoji = '+';
         if (icon.includes('calendar')) emoji = '📅';
         if (icon.includes('lightbulb')) emoji = '💡';
-        
-        this.innerHTML = `<span style="font-size: 1.2rem; cursor: pointer;">${emoji}</span>`;
+        if (icon.includes('clock')) emoji = '⏰';
+        this.innerHTML = `<span style="font-size: 1.2rem;">${emoji}</span>`;
       }
     }
     customElements.define('ha-icon', HaIcon);
 
-    // Mock Backend Database (Schedule Helper)
-    let mockScheduleDB = [
-      {
-        id: "schedule.mock_livingroom_light",
-        name: "거실 전등 자동화 스케쥴",
-        icon: "mdi:lightbulb",
-        monday: [{from: "18:00:00", to: "23:00:00"}], 
-        tuesday: [{from: "18:00:00", to: "23:00:00"}], 
-        wednesday: [{from: "18:00:00", to: "23:00:00"}], 
-        thursday: [{from: "18:00:00", to: "23:00:00"}], 
-        friday: [{from: "18:00:00", to: "23:00:00"}, {from: "07:00:00", to: "09:00:00"}], 
-        saturday: [{from: "10:00:00", to: "23:59:00"}], 
-        sunday: [{from: "10:00:00", to: "23:59:00"}]
-      }
+    // ── Mock schedule storage (v1.4-friendly: weekday-only) ──────────────
+    // 월~금에만 시간 블록이 있고 주말은 비어있다.
+    // _hydrateFromSchedule 가 active_days = [0,1,2,3,4] 로 추론한다.
+    const WEEKDAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    const weekdayBlocks = [
+      { from: '07:00:00', to: '09:00:00' },
+      { from: '18:00:00', to: '23:00:00' },
     ];
+    const storageId = 'mock_livingroom_light';
+    const entityId  = `schedule.${storageId}`;
+    const mockSchedule = {
+      id: storageId,
+      name: '거실 전등 자동화 스케쥴',
+      icon: 'mdi:lightbulb',
+      monday: [...weekdayBlocks],
+      tuesday: [...weekdayBlocks],
+      wednesday: [...weekdayBlocks],
+      thursday: [...weekdayBlocks],
+      friday: [...weekdayBlocks],
+      saturday: [],
+      sunday: [],
+    };
 
-    // Mock HASS Object
     const hass = {
       language: 'ko',
       states: {
-        'schedule.mock_livingroom_light': {
-          entity_id: 'schedule.mock_livingroom_light',
+        [entityId]: {
+          entity_id: entityId,
           state: 'off',
-          attributes: {
-            friendly_name: "거실 전등 자동화 스케쥴"
-          }
-        }
+          attributes: { friendly_name: mockSchedule.name },
+        },
       },
-      // Mock callWS for Registry Fetching and Updating
       callWS: async (payload) => {
-        console.log("Mock WS Call:", payload);
+        // v1.4 카드가 schedule/list 결과를 배열로 받아 .find(...) 한다.
         if (payload.type === 'schedule/list') {
-          // List endpoint isn't naturally used in frontend natively unless mapped?
-          // The frontend calls REST API via HA websocket.
+          return [mockSchedule];
         }
-        
-        // Mock get states/entities for schedule data
-        if (payload.type === 'config/entity_registry/list') {
-            return [];
+        // unique_id 가 있어야 1차 매칭이 성공한다.
+        if (payload.type === 'config/entity_registry/get' && payload.entity_id === entityId) {
+          return { entity_id: entityId, unique_id: storageId };
         }
-
-        // The card uses hass.states locally, but it might fetch if it wants
-        // Wait, schedule-ui.js calls "schedule/update" directly.
-        if (payload.type === 'schedule/update') {
-          const idx = mockScheduleDB.findIndex(s => s.id === payload.schedule_id);
-          if (idx !== -1) {
-            // merge keys (e.g. monday, tuesday, etc.)
-            mockScheduleDB[idx] = { ...mockScheduleDB[idx], ...payload };
-            
-            // Re-assign the entire states object to trigger UI re-render
-            const updatedHass = Object.assign({}, document.getElementById('myCard').hass);
-            
-            // In a real HA env, updating schedule data doesn't return state immediately.
-            // But we can trigger a re-render by doing this:
-            document.getElementById('myCard')._scheduleData = mockScheduleDB[idx];
-            document.getElementById('myCard').requestUpdate();
-            
-            return mockScheduleDB[idx];
+        // 저장 호출은 mockSchedule을 in-place 업데이트해서 다음 schedule/list 결과에 반영.
+        if (payload.type === 'schedule/update' && payload.schedule_id === storageId) {
+          for (const d of WEEKDAYS) {
+            if (Array.isArray(payload[d])) mockSchedule[d] = payload[d];
           }
+          return mockSchedule;
         }
-        
-        // Return dummy data when card fetch schedule details
-        if (payload.type === 'config/entity_registry/get') {
-            return { entity_id: payload.entity_id };
-        }
-
-        // Just mock what the card might request by returning the current mock DB object if possible
-        const scheduleData = mockScheduleDB.find(s => s.id === payload.entity_id || s.id === payload.schedule_id);
-        if (scheduleData) return scheduleData;
-
         return {};
-      }
+      },
     };
 
-    // Initialize Card
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener('DOMContentLoaded', () => {
       const card = document.getElementById('myCard');
-      
-      // Inject dummy schedule data to the element directly if normal fetch fails
-      // card._scheduleData = mockScheduleDB[0];
-      
       card.setConfig({
-        type: "custom:ha-custom-schedule-card"
+        type: 'custom:ha-custom-schedule-card',
+        entity: entityId,
       });
       card.hass = { ...hass };
     });
 
-    // Handle Language Switching
-    window.switchLang = function(lang) {
+    window.switchLang = function (lang) {
       hass.language = lang;
       document.getElementById('myCard').hass = { ...hass };
-    }
+    };
   </script>
 </body>
 </html>
