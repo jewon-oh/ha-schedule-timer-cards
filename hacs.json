@@ -1,6 +1,5 @@
 {
   "name": "HA Timer And Schedule Card",
   "render_readme": true,
-  "filename": "timer-schedule-card.js",
-  "iot_class": "Local Push"
+  "filename": "timer-schedule-card.js"
 }

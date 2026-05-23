@@ -14,9 +14,16 @@
     "type": "git",
     "url": "git+https://github.com/jewon-oh/schedule-ui.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "home-assistant",
+    "hacs",
+    "lovelace",
+    "custom-card",
+    "schedule",
+    "timer"
+  ],
+  "author": "jewon-oh",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/jewon-oh/schedule-ui/issues"
   },
