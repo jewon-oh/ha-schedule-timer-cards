@@ -551,12 +551,12 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
       z-index: 4;
     }
 
-    /* time pill은 항상 블록 *안쪽* 좌측 상단에 떠 있다. 카드의 overflow:hidden
-       에 잘리지 않도록 외부(top:-28px)에 띄우는 대신 inside-floating으로
-       위치를 잡는다. 블록 높이가 pill보다 작아 살짝 넘쳐도 카드 안이므로 잘림 0. */
+    /* time pill은 블록 *안쪽* 좌하단. 좌상단은 handle-top, 우상단은 delete가
+       차지하므로 비어 있는 좌하단으로 피신. 카드 overflow:hidden에 잘리지
+       않도록 inside-floating은 유지. */
     .block-time-pill {
       position: absolute;
-      top: 4px;
+      bottom: 4px;
       left: 4px;
       background: rgba(0, 0, 0, 0.55);
       color: #fff;
@@ -579,30 +579,31 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
       border-radius: 50%;
       box-shadow: 0 1px 3px rgba(0,0,0,0.4);
       touch-action: none;
-      cursor: ns-resize;
-      /* 핸들은 다른 요소보다 항상 위에 — 작은 블록에서 아래 블록과 겹쳐도 잡기 좋도록 */
+      /* 시각상 대각 모서리 핸들 — 실제 변경은 세로(시간)만이지만
+         커서 힌트는 핸들 위치를 따라가는 게 일관적. */
+      cursor: nwse-resize;
       z-index: 1000;
-      /* 양쪽 핸들 모두 가로 중앙 정렬 */
-      left: calc(50% - 7px);
     }
 
+    /* 14x14 시각 크기는 유지하고 ::after로 44x44 터치 타깃을 만든다.
+       모서리 핸들은 손가락 끝이 시각보다 살짝 어긋나도 잡히도록 더 넉넉히. */
     .block-handle::after {
       content: "";
       position: absolute;
-      inset: -10px; /* 24x24 hit target */
+      inset: -15px;
     }
 
-    .block-handle.handle-top    { top: -7px; }
-    .block-handle.handle-bottom { bottom: -7px; }
+    .block-handle.handle-top    { top: -7px; left: -7px; }
+    .block-handle.handle-bottom { bottom: -7px; right: -7px; }
 
-    /* 삭제 버튼도 블록 *안쪽* 우측 상단. 이전엔 top:-10px right:-10px로
-       블록 모서리에 걸려 있어서 ha-card overflow:hidden에 잘렸다. */
+    /* 삭제 버튼: 블록 안쪽 우측 상단. 모바일 thumb-friendly 하게 30x30.
+       (좌상단 = handle-top, 우하단 = handle-bottom 이라 우상단이 비어 있음.) */
     .block-delete {
       position: absolute;
       top: 4px;
       right: 4px;
-      width: 22px;
-      height: 22px;
+      width: 30px;
+      height: 30px;
       background: var(--custom-danger);
       color: #fff;
       border: 2px solid #fff;
@@ -612,7 +613,7 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
       justify-content: center;
       cursor: pointer;
       padding: 0;
-      font-size: 1rem;
+      font-size: 1.35rem;
       line-height: 1;
       font-weight: 700;
       box-shadow: 0 1px 3px rgba(0,0,0,0.4);
@@ -1285,4 +1286,4 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
     .btn-danger:hover:not(:disabled) {
       background: #e53935;
     }
-  `}}customElements.define("ha-custom-timer-card",gt),window.customCards=window.customCards||[],(()=>{const t=e[i()]??e.en;window.customCards.push({type:"ha-custom-timer-card",name:t.cardName,preview:!0,description:t.cardDescription,documentationURL:"https://github.com/jewon-oh/schedule-ui"})})(),console.log("%c[schedule-ui] v1.4.5 loaded","color: #03a9f4; font-weight: bold; font-size: 14px;");
+  `}}customElements.define("ha-custom-timer-card",gt),window.customCards=window.customCards||[],(()=>{const t=e[i()]??e.en;window.customCards.push({type:"ha-custom-timer-card",name:t.cardName,preview:!0,description:t.cardDescription,documentationURL:"https://github.com/jewon-oh/schedule-ui"})})(),console.log("%c[schedule-ui] v1.4.6 loaded","color: #03a9f4; font-weight: bold; font-size: 14px;");
