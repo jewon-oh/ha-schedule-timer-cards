@@ -53,6 +53,17 @@ class HaCustomScheduleCard extends LitElement {
     this._toast = null;        // { message: string }
     this._confirm = null;      // { message, onConfirm }
     this._toastTimer = null;
+    this._saveTimer = null;    // debounced _updateSchedule
+  }
+
+  // 빠른 연속 토글(예: 월·화·수 켜기)에서 매번 서버 왕복하지 않도록
+  // 마지막 변경 후 일정 시간 멈춰야 저장한다.
+  _scheduleSaveDebounced(ms = 400) {
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => {
+      this._saveTimer = null;
+      this._updateSchedule();
+    }, ms);
   }
 
   _showToast(message, ms = 3000) {
@@ -401,8 +412,9 @@ class HaCustomScheduleCard extends LitElement {
   }
 
   // day-switcher 토글 (multi-select). 최소 1개 보장.
-  async _toggleActiveDay(idx) {
-    if (this._isEditing) return;
+  // 즉시 반영 후 debounced save — 사용자가 여러 요일을 연속해서 토글해도
+  // 잠금/왕복 없이 한 번에 묶어서 저장된다.
+  _toggleActiveDay(idx) {
     const has = this._activeDays.includes(idx);
     const next = has
       ? this._activeDays.filter(d => d !== idx)
@@ -412,7 +424,7 @@ class HaCustomScheduleCard extends LitElement {
       return;
     }
     this._activeDays = next;
-    await this._updateSchedule();
+    this._scheduleSaveDebounced();
   }
 
   _formatTime(timeStr) {
@@ -584,7 +596,7 @@ class HaCustomScheduleCard extends LitElement {
                 <button type="button"
                         class="day-pill ${isActive ? 'selected' : ''}"
                         aria-pressed="${isActive}"
-                        ?disabled=${isDummy || this._isEditing}
+                        ?disabled=${isDummy}
                         @click=${() => this._toggleActiveDay(i)}>
                   ${this._t("daysShort")[i]}
                 </button>
