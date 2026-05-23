@@ -131,7 +131,7 @@ class HaCustomTimerCard extends LitElement {
   }
 
   render() {
-    if (!this._config) return html`<ha-card><div class="error">Not configured</div></ha-card>`;
+    if (!this._config) return html`<ha-card><div class="error">${this._t("notConfigured")}</div></ha-card>`;
 
     const isDummy = !this._config.entity;
     let state = "idle";

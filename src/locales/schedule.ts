@@ -59,6 +59,7 @@ export const LOCALES = {
     confirmDeleteTitle: "시간 블록 삭제",
     saveFailed: "저장에 실패했습니다.",
     blockOverlap: "다른 시간 블록과 겹쳐 추가할 수 없습니다.",
+    notConfigured: "카드가 구성되지 않았습니다.",
   },
   en: {
     addBlock: "Add New Block",
@@ -118,6 +119,7 @@ export const LOCALES = {
     confirmDeleteTitle: "Delete time block",
     saveFailed: "Failed to save schedule.",
     blockOverlap: "This range overlaps an existing block.",
+    notConfigured: "Card is not configured.",
   },
 } as const;
 

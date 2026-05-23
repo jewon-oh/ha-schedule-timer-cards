@@ -44,6 +44,7 @@ export const TIMER_LOCALES = {
     timerBridgeAliasPrefix: "타이머 브릿지: ",
     syncingMessage: "동기화 중입니다...",
     generatedTimerLabel: " (생성된 타이머)",
+    notConfigured: "카드가 구성되지 않았습니다.",
   },
   en: {
     addTitle: "+ Add Time",
@@ -87,6 +88,7 @@ export const TIMER_LOCALES = {
     timerBridgeAliasPrefix: "Timer bridge: ",
     syncingMessage: "Syncing...",
     generatedTimerLabel: " (generated)",
+    notConfigured: "Card is not configured.",
   },
 } as const;
 

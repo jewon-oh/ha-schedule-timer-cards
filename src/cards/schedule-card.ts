@@ -482,7 +482,7 @@ class HaCustomScheduleCard extends LitElement {
 
 
   render() {
-    if (!this._config) return html`<ha-card><div class="error">Not configured</div></ha-card>`;
+    if (!this._config) return html`<ha-card><div class="error">${this._t("notConfigured")}</div></ha-card>`;
 
     // 카드 피커 프리뷰 또는 hass 미로드 시: 간단한 플레이스홀더 표시
     if (!this._hass) {
