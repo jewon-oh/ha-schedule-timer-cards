@@ -66,6 +66,37 @@ class HaCustomScheduleCard extends LitElement {
     }, ms);
   }
 
+  // 카드 안의 block / handle / delete 가 아닌 클릭이면 선택 해제.
+  // (timeline 빈 영역, day-switcher, card-header, 카드 외부 모두 포함.)
+  // pointerdown 핸들러가 editor-column 빈 영역만 처리하던 한계를 메운다.
+  connectedCallback() {
+    super.connectedCallback();
+    this._onDocPointerDown = (e) => {
+      if (this._selectedBlockIdx === null) return;
+      if (this._isDragging || this._resizingBlockIdx !== null) return;
+      const path = e.composedPath ? e.composedPath() : [];
+      const keepSelection = path.some(el => {
+        const cls = el?.classList;
+        if (!cls) return false;
+        return cls.contains("editor-block")
+          || cls.contains("block-handle")
+          || cls.contains("block-delete")
+          || cls.contains("block-time-pill");
+      });
+      if (!keepSelection) this._selectedBlockIdx = null;
+    };
+    document.addEventListener("pointerdown", this._onDocPointerDown, true);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._onDocPointerDown) {
+      document.removeEventListener("pointerdown", this._onDocPointerDown, true);
+    }
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    if (this._toastTimer) clearTimeout(this._toastTimer);
+  }
+
   _showToast(message, ms = 3000) {
     if (this._toastTimer) clearTimeout(this._toastTimer);
     this._toast = { message };
