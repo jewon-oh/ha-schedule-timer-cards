@@ -47,14 +47,29 @@ if (!USER || !PASS) {
   console.log("[ha-screenshot] Navigating to root and signing in…");
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
 
-  // HA signs the user in through a nested lit/shadow form; Playwright handles
-  // shadow DOM piercing by default for `page.fill`/`page.click` selectors.
+  // HA's login form lives inside ha-authorize > ha-auth-flow > ha-form. The
+  // input elements don't carry a `name="username"`/`name="password"` attribute
+  // (HA uses ha-form-string with auto-generated ids), so we target by input
+  // ordering + type. Playwright pierces shadow DOM by default.
   try {
-    await page.fill('input[name="username"]', USER, { timeout: 8000 });
-    await page.fill('input[name="password"]', PASS);
-    // The submit button is an mwc-button inside <ha-auth-form>. Press Enter as a fallback.
-    await page.keyboard.press("Enter");
+    const userInput = page.locator('input').first();
+    const passInput = page.locator('input[type="password"]').first();
+    await userInput.waitFor({ state: "visible", timeout: 10000 });
+    await userInput.fill(USER);
+    await passInput.fill(PASS);
+
+    // Submit: prefer the mwc-button, fall back to Enter on the password input.
+    const submit = page.locator(
+      'mwc-button[raised], mwc-button:has-text("로그인"), mwc-button:has-text("Log in"), button[type="submit"]'
+    ).first();
+    if (await submit.count()) {
+      await submit.click();
+    } else {
+      await passInput.press("Enter");
+    }
+    // Wait for the auth redirect to settle.
     await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(1500);
   } catch (e) {
     console.warn("[ha-screenshot] login form filling failed:", e.message);
     console.warn("[ha-screenshot] continuing in case the session was already valid.");
