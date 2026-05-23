@@ -39,13 +39,15 @@ jobs:
             echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
 
+      # Run git-cliff ourselves so the release notes land in a file we
+      # control. Avoids relying on the action's $GITHUB_OUTPUT capture,
+      # which silently produced an empty body on v1.4.1.
       - name: Generate release notes (git-cliff)
         if: github.event_name == 'push'
-        id: changelog
-        uses: orhun/git-cliff-action@v4
-        with:
-          config: cliff.toml
-          args: --latest --strip header
+        run: |
+          npx -y git-cliff --latest --strip header --config cliff.toml -o RELEASE_NOTES.md
+          echo "--- RELEASE_NOTES.md ---"
+          cat RELEASE_NOTES.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -53,6 +55,6 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.name }}
           name: ${{ steps.tag.outputs.name }}
-          body: ${{ steps.changelog.outputs.content }}
+          body_path: RELEASE_NOTES.md
           files: |
             timer-schedule-card.js

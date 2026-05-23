@@ -6,6 +6,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![GitHub Release](https://img.shields.io/github/v/release/jewon-oh/schedule-ui?include_prereleases)](https://github.com/jewon-oh/schedule-ui/releases)
+[![Validate](https://github.com/jewon-oh/schedule-ui/actions/workflows/validate.yml/badge.svg?branch=master)](https://github.com/jewon-oh/schedule-ui/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
 
 Single JS file. UI auto-switches between English and Korean based on your Home Assistant language.
