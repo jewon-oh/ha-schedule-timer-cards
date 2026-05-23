@@ -715,272 +715,6 @@ class HaCustomScheduleCard extends LitElement {
       position: relative;
     }
 
-    /* ── 스케쥴 생성 마법사 ── */
-    .create-wizard {
-      animation: fadeIn 0.3s ease;
-    }
-
-    .wizard-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
-    }
-
-    .wizard-header ha-icon {
-      color: var(--custom-primary);
-      --mdc-icon-size: 28px;
-    }
-
-    .wizard-header h3 {
-      margin: 0;
-      font-size: 1.05rem;
-      font-weight: 600;
-    }
-
-    .wizard-desc {
-      margin: 0 0 20px 0;
-      font-size: 0.85rem;
-      color: var(--custom-secondary);
-      line-height: 1.5;
-    }
-
-    .wizard-fields {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-
-    .wizard-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .wizard-field label {
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--custom-secondary);
-    }
-
-    .wizard-field input[type="text"] {
-      padding: 12px;
-      background: rgba(0,0,0,0.2);
-      border: 1px solid var(--custom-border);
-      color: var(--custom-text);
-      border-radius: 8px;
-      font-size: 1rem;
-      outline: none;
-      font-family: inherit;
-      transition: border-color 0.2s ease;
-    }
-
-    .wizard-field input[type="text"]:focus {
-      border-color: var(--custom-primary);
-    }
-
-    .wizard-field input[type="text"]::placeholder {
-      color: var(--custom-secondary);
-      opacity: 0.5;
-    }
-
-    .wizard-field select {
-      padding: 12px;
-      background: rgba(0,0,0,0.2);
-      border: 1px solid var(--custom-border);
-      color: var(--custom-text);
-      border-radius: 8px;
-      font-size: 1rem;
-      outline: none;
-      font-family: inherit;
-      cursor: pointer;
-      appearance: none;
-      -webkit-appearance: none;
-      transition: border-color 0.2s ease;
-    }
-
-    .wizard-field select:focus {
-      border-color: var(--custom-primary);
-    }
-
-    .wizard-field select option {
-      background: var(--card-background-color, #2b2b2b);
-      color: var(--primary-text-color, #fff);
-      font-size: 1rem;
-    }
-
-    .wizard-field ha-entity-picker {
-      display: block;
-    }
-
-    .create-btn {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, var(--custom-primary), #7c4dff);
-      color: var(--text-primary-color, #fff);
-      border: none;
-      border-radius: 12px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      box-shadow: 0 4px 16px rgba(3, 169, 244, 0.35);
-      transition: all 0.2s ease;
-    }
-
-    .create-btn:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(3, 169, 244, 0.45);
-    }
-
-    .create-btn:active:not(:disabled) {
-      transform: scale(0.98);
-    }
-
-    .create-btn:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
-
-    .result-msg {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 14px 16px;
-      border-radius: 12px;
-      margin-bottom: 16px;
-      animation: fadeIn 0.3s ease;
-    }
-
-    .result-msg.success {
-      background: rgba(76, 175, 80, 0.12);
-      border: 1px solid rgba(76, 175, 80, 0.3);
-    }
-
-    .result-msg.success ha-icon {
-      color: var(--custom-success);
-      --mdc-icon-size: 24px;
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-
-    .result-msg.success strong {
-      color: var(--custom-success);
-      display: block;
-      margin-bottom: 4px;
-    }
-
-    .result-msg.success p {
-      margin: 0;
-      font-size: 0.9rem;
-      color: var(--custom-secondary);
-      word-break: break-all;
-    }
-
-    .result-msg.success .hint {
-      margin-top: 8px;
-      font-size: 0.8rem;
-      opacity: 0.7;
-    }
-
-    .result-msg.error {
-      background: rgba(244, 67, 54, 0.1);
-      border: 1px solid rgba(244, 67, 54, 0.3);
-      color: var(--custom-danger);
-      font-size: 0.85rem;
-    }
-
-    .result-msg.error ha-icon {
-      --mdc-icon-size: 20px;
-      flex-shrink: 0;
-    }
-
-    .wizard-hint {
-      text-align: center;
-      font-size: 0.8rem;
-      color: var(--custom-secondary);
-      opacity: 0.6;
-      margin: 16px 0 0 0;
-    }
-
-    .wizard-close-btn {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      background: rgba(255,255,255,0.08);
-      border: none;
-      color: var(--custom-secondary);
-      cursor: pointer;
-      padding: 6px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-    }
-
-    .wizard-close-btn:hover {
-      background: rgba(255,255,255,0.15);
-      color: var(--custom-text);
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .spin {
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ── 요일 칩 (form 전용) ── */
-    .day-chip {
-      flex: 1;
-      text-align: center;
-      padding: 10px 0;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      font-weight: 500;
-      cursor: pointer;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--custom-border);
-      transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
-      min-width: 0;
-    }
-
-    .day-chip:hover {
-      background: rgba(255,255,255,0.08);
-      transform: translateY(-2px);
-    }
-
-    .day-chip.selected {
-      background: var(--custom-primary);
-      color: var(--text-primary-color, #fff);
-      border-color: var(--custom-primary);
-      box-shadow: 0 4px 12px rgba(3, 169, 244, 0.3);
-      transform: translateY(-2px);
-    }
-
-    /* '매일' 탭 전용 스타일 */
-    .day-chip.everyday {
-      flex: 1.4;
-      font-size: 0.85rem;
-      letter-spacing: 0.5px;
-    }
-
-    .day-chip.everyday.selected {
-      background: linear-gradient(135deg, var(--custom-primary), #7c4dff);
-      border-color: transparent;
-    }
-
     /* ── 데이 에디터 (단일 컬럼) ── */
     .day-editor {
       margin-bottom: 16px;
@@ -992,7 +726,10 @@ class HaCustomScheduleCard extends LitElement {
     .day-editor-grid {
       display: flex;
       gap: 8px;
-      height: 540px;
+      /* HA sections 레이아웃에서 그리드 칸 수가 바뀔 때 자연스럽게 따라간다.
+         min-height는 12개 행을 최소한 읽을 수 있는 크기, max-height는 큰 화면에서
+         과도하게 길어지지 않도록. CSS 변수로 노출해 카드 옵션·user style로 조절 가능. */
+      height: var(--schedule-card-timeline-height, clamp(420px, 60vh, 720px));
     }
 
     .hour-labels-col {
@@ -1075,15 +812,15 @@ class HaCustomScheduleCard extends LitElement {
       outline-offset: 2px;
     }
 
-    .editor-block:hover:not(.pending):not(.selected) {
-      opacity: 0.9;
-      box-shadow: 0 0 8px rgba(3, 169, 244, 0.5);
+    @media (hover: hover) {
+      .editor-block:hover:not(.pending):not(.selected) {
+        opacity: 0.85;
+      }
     }
 
     .editor-block.selected {
-      background: rgba(13, 71, 161, 0.55);
+      background: rgba(13, 71, 161, 0.65);
       border: 1.5px solid var(--custom-primary);
-      box-shadow: 0 0 10px rgba(3, 169, 244, 0.3);
       overflow: visible;
       z-index: 4;
     }
@@ -1174,8 +911,16 @@ class HaCustomScheduleCard extends LitElement {
       border-style: solid;
     }
 
+    /* 충돌 상태: 색깔만이 아니라 사선 패턴까지 추가해 색맹 사용자도 구분 가능.
+       gradient는 무지(red) tint + 사선 stripe 겹쳐서 표현. */
     .editor-block.conflict {
-      background: linear-gradient(180deg, rgba(255, 82, 82, 0.7), rgba(255, 82, 82, 0.45));
+      background:
+        repeating-linear-gradient(
+          135deg,
+          rgba(255, 255, 255, 0.18) 0 6px,
+          transparent 6px 12px
+        ),
+        rgba(255, 82, 82, 0.75);
       border-color: #ff5252;
     }
 
@@ -1326,6 +1071,11 @@ class HaCustomScheduleCard extends LitElement {
     @keyframes toastIn {
       from { opacity: 0; transform: translate(-50%, 8px); }
       to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
     /* 인라인 confirm 다이얼로그 (browser confirm 대체) */
