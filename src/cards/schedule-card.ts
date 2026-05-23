@@ -995,23 +995,20 @@ class HaCustomScheduleCard extends LitElement {
       pointer-events: none;
     }
 
-    /* button reset for .editor-block */
-    button.editor-block {
+    /* .editor-block (rendered as <button>) — button reset folded into the
+       main rule so a higher-specificity selector cannot strip the background. */
+    .editor-block {
       appearance: none;
       -webkit-appearance: none;
       font: inherit;
       color: inherit;
       padding: 0;
       margin: 0;
-      border: none;
-      background: none;
-    }
-
-    .editor-block {
       position: absolute;
       left: 4px;
       right: 4px;
       background: var(--custom-primary);
+      border: none;
       border-radius: 4px;
       min-height: 2px;
       display: flex;
@@ -1208,25 +1205,21 @@ class HaCustomScheduleCard extends LitElement {
       padding: 0 4px;
     }
 
-    /* button reset for .day-pill */
-    button.day-pill {
+    /* .day-pill (rendered as <button>) — button reset inlined. */
+    .day-pill {
       appearance: none;
       -webkit-appearance: none;
       font: inherit;
-      border: none;
-      background: none;
-    }
-
-    .day-pill {
       flex: 1;
       text-align: center;
       padding: 10px 0;
       font-size: 0.85rem;
       color: var(--custom-secondary);
+      background: transparent;
       cursor: pointer;
       border-radius: 999px;
-      transition: background 0.15s ease, color 0.15s ease;
       border: 1px solid transparent;
+      transition: background 0.15s ease, color 0.15s ease;
     }
 
     .day-pill:hover:not(:disabled) {
