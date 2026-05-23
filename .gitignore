@@ -3,7 +3,15 @@ node_modules/
 *.log
 .DS_Store
 
-# Local HA dev environment: keep configuration.yaml, ignore everything else
+# Local HA dev environment: keep configuration.yaml + bundled blueprints,
+# ignore the rest (HA runtime DB, storage/, secrets, logs)
 ha-config/*
 !ha-config/configuration.yaml
 !ha-config/.gitkeep
+!ha-config/blueprints/
+ha-config/blueprints/*
+!ha-config/blueprints/automation/
+ha-config/blueprints/automation/*
+!ha-config/blueprints/automation/jewon-oh/
+!ha-config/dashboards/
+!ha-config/dashboards/**

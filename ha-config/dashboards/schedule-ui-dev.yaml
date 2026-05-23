@@ -1,0 +1,63 @@
+# Plugin test bench. Edit-and-restart cycle:
+#   1. Tweak this file
+#   2. npm run ha:restart
+#   3. Browser hard refresh
+#
+# To add a Schedule Card / Timer Card here, first create the matching helper
+# from the HA UI (Settings -> Devices & services -> Helpers -> Create helper),
+# then drop a card entry into the layout below using the helper's entity_id.
+
+title: Schedule UI Dev
+views:
+  - title: Test bench
+    icon: mdi:test-tube
+    path: bench
+    type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: markdown
+            content: |
+              ## Schedule UI test bench
+
+              가상 기기 4종(light / switch / fan / cover)이 `input_boolean`을
+              backing store로 사용하도록 [configuration.yaml](/config/configuration.yaml)에
+              정의되어 있습니다. 카드 자동화 마법사는 이 가상 엔티티를 `target_device`로
+              선택해서 끝점까지의 흐름(schedule → automation bridge → 대상 기기 toggle)을
+              검증할 수 있습니다.
+
+              **흐름 1 — 카드 자동 생성 마법사**
+              1. 이 대시보드 편집 → 카드 추가 → *Schedule Card* 또는 *Timer Card*
+              2. 비주얼 에디터의 *대상 기기 선택*에서 `light.virtual_living_room_light` 등 선택
+              3. 헬퍼와 automation bridge가 즉시 생성되어 카드에 연결됨
+              4. 시간 블록을 추가하고 `input_boolean` 토글이 일어나는지 확인
+
+              **흐름 2 — 기존 헬퍼 연결**
+              1. 설정 → 기기 & 서비스 → 헬퍼 → 헬퍼 만들기 → Schedule / Timer
+              2. 이 대시보드 편집 → 카드 추가 → 카드의 entity 칸에 만든 헬퍼 선택
+      - type: grid
+        cards:
+          - type: entities
+            title: Virtual devices (template entities)
+            show_header_toggle: false
+            entities:
+              - entity: light.virtual_living_room_light
+                name: Living room light
+              - entity: switch.virtual_kettle
+                name: Kettle
+              - entity: fan.virtual_bedroom_fan
+                name: Bedroom fan
+              - entity: cover.virtual_blinds
+                name: Blinds
+          - type: entities
+            title: Backing stores (raw input_boolean)
+            show_header_toggle: false
+            entities:
+              - entity: input_boolean.vdev_living_room_light
+                name: Living room light
+              - entity: input_boolean.vdev_kettle
+                name: Kettle
+              - entity: input_boolean.vdev_bedroom_fan
+                name: Bedroom fan
+              - entity: input_boolean.vdev_blinds
+                name: Blinds

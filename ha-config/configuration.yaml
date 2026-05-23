@@ -3,12 +3,34 @@
 
 default_config:
 
+# Load yaml-managed automations from /config/automations.yaml.
+# The card's wizard writes automation entries via POST
+# /api/config/automation/config/{id}, which lands in automations.yaml — but
+# `default_config` only activates the storage/UI automation set, so this
+# include is required to surface those entries as automation.* entities.
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
 # Auto-load the built Lovelace card on every dashboard.
 # (Equivalent to manually adding /local/timer-schedule-card.js as a
 # Lovelace resource of type "JavaScript Module".)
 frontend:
   extra_module_url:
     - /local/timer-schedule-card.js
+
+# Default dashboard stays in storage mode (so HA's UI editor still works for
+# scratch work). Add a dedicated yaml-mode dashboard for the plugin test bench
+# — it's tracked in git so the layout is reproducible.
+lovelace:
+  mode: storage
+  dashboards:
+    schedule-ui-dev:
+      mode: yaml
+      title: Schedule UI Dev
+      icon: mdi:calendar-clock
+      show_in_sidebar: true
+      filename: dashboards/schedule-ui-dev.yaml
 
 # Allow access from the host machine without IPv6 reverse DNS issues
 # while running with network_mode: host on Docker Desktop.
@@ -24,3 +46,80 @@ logger:
     # Surface schedule/timer helper traffic at debug while developing
     homeassistant.components.schedule: debug
     homeassistant.components.timer: debug
+
+# -----------------------------------------------------------------------------
+# Virtual devices for local plugin development
+# -----------------------------------------------------------------------------
+# The card's "target device" picker filters to:
+#   schedule editor: switch, light, fan, climate, cover
+#   timer editor   : light, switch, fan, climate, media_player
+# Each virtual device below is an input_boolean (backing store) plus a template
+# entity in the right domain. Toggling the template entity flips the
+# input_boolean, so you can watch the schedule/timer bridge fire end-to-end
+# without any real hardware.
+
+input_boolean:
+  vdev_living_room_light:
+    name: Backing store — Living room light
+    icon: mdi:lightbulb
+  vdev_kettle:
+    name: Backing store — Kettle
+    icon: mdi:kettle
+  vdev_bedroom_fan:
+    name: Backing store — Bedroom fan
+    icon: mdi:fan
+  vdev_blinds:
+    name: Backing store — Blinds
+    icon: mdi:blinds
+
+# Modern template integration (HA 2024.6+). The legacy `platform: template`
+# form is being phased out across all domains.
+template:
+  - light:
+      - name: "Virtual Living Room Light"
+        default_entity_id: light.virtual_living_room_light
+        state: "{{ is_state('input_boolean.vdev_living_room_light', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.vdev_living_room_light
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.vdev_living_room_light
+  - switch:
+      - name: "Virtual Kettle"
+        default_entity_id: switch.virtual_kettle
+        state: "{{ is_state('input_boolean.vdev_kettle', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.vdev_kettle
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.vdev_kettle
+  - fan:
+      - name: "Virtual Bedroom Fan"
+        default_entity_id: fan.virtual_bedroom_fan
+        state: "{{ is_state('input_boolean.vdev_bedroom_fan', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.vdev_bedroom_fan
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.vdev_bedroom_fan
+  - cover:
+      - name: "Virtual Blinds"
+        default_entity_id: cover.virtual_blinds
+        state: "{{ is_state('input_boolean.vdev_blinds', 'on') }}"
+        open_cover:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.vdev_blinds
+        close_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.vdev_blinds
