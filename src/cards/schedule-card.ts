@@ -30,6 +30,7 @@ class HaCustomScheduleCard extends LitElement {
     _resizingEdge: { state: true },
     _toast: { state: true },
     _confirm: { state: true },
+    _isEditing: { state: true },
   };
 
   constructor() {
