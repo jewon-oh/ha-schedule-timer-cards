@@ -1,0 +1,30 @@
+{
+  "name": "schedule-ui",
+  "version": "1.0.0",
+  "description": "Home Assistant의 순정 `schedule` 및 `timer` 헬퍼를 시각적으로 단일 관리하고, 기기를 연결해 동작 브릿지(Automation)까지 클릭 한 번에 구축해주는 **올인원 커스텀 카드 팩**입니다.",
+  "main": "timer-schedule-card.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "screenshot": "node run-screenshot.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jewon-oh/schedule-ui.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jewon-oh/schedule-ui/issues"
+  },
+  "homepage": "https://github.com/jewon-oh/schedule-ui#readme",
+  "dependencies": {
+    "playwright": "^1.60.0"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
