@@ -119,6 +119,12 @@ npm run dev        # 8080 포트 정적 서버 기동
 # http://localhost:8080/dev/preview-timer.html
 ```
 
+헤드리스 스모크 테스트 (두 프리뷰를 로드하고 카드 마운트 및 콘솔 에러 0 검증):
+
+```bash
+npm run smoke
+```
+
 스크린샷 재생성 (Playwright + 프리뷰 페이지):
 
 ```bash

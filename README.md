@@ -119,6 +119,12 @@ npm run dev        # http-server on :8080
 # http://localhost:8080/dev/preview-timer.html
 ```
 
+Run the headless smoke test (loads both previews, asserts the cards mount and emit no console errors):
+
+```bash
+npm run smoke
+```
+
 Regenerate screenshots (uses Playwright + the dev preview pages):
 
 ```bash
