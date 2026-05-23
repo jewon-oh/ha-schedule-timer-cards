@@ -74,23 +74,34 @@ class HaCustomScheduleCard extends LitElement {
     _hass: { state: false },
     _scheduleData: { state: true },
     _selectedDay: { state: true },
-    _showAddForm: { state: true },
     _showCreateWizard: { state: true },
     _isCreating: { state: true },
     _createResult: { state: true },
     _addFormDays: { state: true },
+    _dragDay: { state: true },
+    _dragStartMin: { state: true },
+    _dragEndMin: { state: true },
+    _pendingBlock: { state: true },
+    _selectedBlockKey: { state: true },
+    _resizingBlock: { state: true },
   };
 
   constructor() {
     super();
     this._scheduleData = null;
     this._selectedDay = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1; // 0=Mon, 6=Sun
-    this._showAddForm = false;
     this._showCreateWizard = false;
     this._isCreating = false;
     this._createResult = null; // { success: boolean, entityId?: string, message?: string }
     this._lang = "en";
     this._isEditing = false;
+    this._dragDay = null;
+    this._dragStartMin = null;
+    this._dragEndMin = null;
+    this._pendingBlock = null;
+    this._addFormDays = [];
+    this._selectedBlockKey = null;
+    this._resizingBlock = null;
   }
 
   setConfig(config) {
@@ -277,47 +288,187 @@ class HaCustomScheduleCard extends LitElement {
     this._updateSchedule();
   }
 
-  _addBlock(e) {
-    e.preventDefault();
-    if (this._isEditing || !this._config?.entity) return;
-    if (!this._scheduleData) {
-      console.warn("[schedule-ui] _addBlock 차단: 스케쥴 데이터가 로드되지 않았습니다.");
+  // 픽셀 Y → 분(15분 스냅)
+  _yToMinutes(barEl, clientY) {
+    const rect = barEl.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    const SNAP = 15;
+    const minutes = Math.round((ratio * 1440) / SNAP) * SNAP;
+    return Math.max(0, Math.min(1440, minutes));
+  }
+
+  // 분 → "HH:MM:00"
+  _minutesToTimeStr(min) {
+    const safe = Math.max(0, Math.min(1439, min));
+    const h = Math.floor(safe / 60);
+    const m = safe % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+  }
+
+  _onBarPointerDown(e, idx) {
+    if (this._isEditing) return;
+    // 기존 블록(또는 그 핸들/라벨/삭제버튼) 클릭은 드래그 생성에서 제외
+    const path = e.composedPath ? e.composedPath() : [];
+    if (path.some(el => el?.classList?.contains?.('editor-block') && !el.classList.contains('pending'))) return;
+    // 빈 공간 클릭 시 선택 해제
+    this._selectedBlockKey = null;
+    const bar = e.currentTarget;
+    try { bar.setPointerCapture(e.pointerId); } catch(_) {}
+    const min = this._yToMinutes(bar, e.clientY);
+    this._dragDay = idx;
+    this._dragStartMin = min;
+    this._dragEndMin = min;
+    this._selectedDay = idx;
+  }
+
+  _selectBlock(e, dayStr, blockIdx) {
+    e.stopPropagation();
+    const key = `${dayStr}-${blockIdx}`;
+    this._selectedBlockKey = this._selectedBlockKey === key ? null : key;
+  }
+
+  _deleteSelectedBlock(e, dayStr, block) {
+    e.stopPropagation();
+    this._selectedBlockKey = null;
+    this._deleteBlock(dayStr, block);
+  }
+
+  _onHandlePointerDown(e, dayStr, blockIdx, edge) {
+    e.stopPropagation();
+    if (this._isEditing) return;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch(_) {}
+    this._resizingBlock = { dayStr, blockIdx, edge };
+  }
+
+  _onHandlePointerMove(e, dayStr, blockIdx, edge) {
+    const r = this._resizingBlock;
+    if (!r || r.dayStr !== dayStr || r.blockIdx !== blockIdx || r.edge !== edge) return;
+    const column = e.currentTarget.closest('.editor-column');
+    if (!column) return;
+
+    const blocks = (this._scheduleData?.[dayStr]) || [];
+    const block = blocks[blockIdx];
+    if (!block) return;
+
+    const min = this._yToMinutes(column, e.clientY);
+    const fromMin = this._timeToMinutes(block.from);
+    const toMin = this._timeToMinutes(block.to);
+
+    // 다른 블록들의 경계로 클램프
+    const otherBlocks = blocks.filter((_, i) => i !== blockIdx);
+    let newFrom = fromMin;
+    let newTo = toMin;
+
+    if (edge === 'top') {
+      // 이전 블록의 to보다 위로 못 감, 현재 to - 15분보다 아래로 못 감
+      const prevEnd = otherBlocks
+        .map(b => this._timeToMinutes(b.to))
+        .filter(t => t <= toMin)
+        .reduce((max, t) => Math.max(max, t), 0);
+      newFrom = Math.max(prevEnd, Math.min(min, toMin - 15));
+    } else {
+      // 다음 블록의 from 아래로 못 감, 현재 from + 15분보다 위로 못 감
+      const nextStart = otherBlocks
+        .map(b => this._timeToMinutes(b.from))
+        .filter(t => t >= fromMin)
+        .reduce((min2, t) => Math.min(min2, t), 1440);
+      newTo = Math.min(nextStart, Math.max(min, fromMin + 15));
+    }
+
+    if (newFrom === fromMin && newTo === toMin) return;
+
+    const updatedBlocks = blocks.map((b, i) => i === blockIdx
+      ? { from: this._minutesToTimeStr(newFrom), to: this._minutesToTimeStr(newTo) }
+      : b);
+    this._scheduleData = { ...this._scheduleData, [dayStr]: updatedBlocks };
+  }
+
+  _onHandlePointerUp(e, dayStr, blockIdx, edge) {
+    const r = this._resizingBlock;
+    if (!r || r.dayStr !== dayStr || r.blockIdx !== blockIdx || r.edge !== edge) return;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch(_) {}
+    this._resizingBlock = null;
+    this._updateSchedule();
+  }
+
+  _onBarPointerMove(e, idx) {
+    if (this._dragDay !== idx) return;
+    this._dragEndMin = this._yToMinutes(e.currentTarget, e.clientY);
+  }
+
+  _onBarPointerUp(e, idx) {
+    if (this._dragDay !== idx) return;
+    const bar = e.currentTarget;
+    try { bar.releasePointerCapture(e.pointerId); } catch(_) {}
+    const start = Math.min(this._dragStartMin, this._dragEndMin);
+    const end = Math.max(this._dragStartMin, this._dragEndMin);
+    this._dragDay = null;
+    this._dragStartMin = null;
+    this._dragEndMin = null;
+    if (end - start < 15) return;
+    if (this._overlapsExisting(idx, start, end)) {
+      console.warn("[schedule-ui] 드래그한 시간대가 기존 블록과 겹쳐 무시됨");
       return;
     }
-    if (this._addFormDays.length === 0) {
-      alert("적용할 요일을 최소 1개 이상 선택해주세요.");
+    this._pendingBlock = { startMin: start, endMin: end };
+    this._addFormDays = [idx];
+  }
+
+  // 해당 요일의 기존 블록과 시간 범위가 겹치는지 검사
+  _overlapsExisting(dayIdx, startMin, endMin) {
+    if (!this._scheduleData) return false;
+    const dayStr = WEEKDAYS[dayIdx];
+    const blocks = this._scheduleData[dayStr] || [];
+    return blocks.some(b => {
+      const bStart = this._timeToMinutes(b.from);
+      const bEnd = this._timeToMinutes(b.to);
+      return startMin < bEnd && endMin > bStart;
+    });
+  }
+
+  // 드래그 중 겹침 여부 (UI 피드백용)
+  _currentDragOverlaps(idx) {
+    if (this._dragDay !== idx || this._dragStartMin === null) return false;
+    const s = Math.min(this._dragStartMin, this._dragEndMin);
+    const e = Math.max(this._dragStartMin, this._dragEndMin);
+    if (e - s < 15) return false;
+    return this._overlapsExisting(idx, s, e);
+  }
+
+  _togglePendingDay(idx) {
+    if (!this._pendingBlock) return;
+    this._addFormDays = this._addFormDays.includes(idx)
+      ? this._addFormDays.filter(d => d !== idx)
+      : [...this._addFormDays, idx];
+  }
+
+  _cancelPending() {
+    this._pendingBlock = null;
+    this._addFormDays = [];
+  }
+
+  async _savePending() {
+    if (!this._pendingBlock || !this._scheduleData) return;
+    if (this._addFormDays.length === 0) return;
+    const { startMin, endMin } = this._pendingBlock;
+    const conflicts = this._addFormDays.filter(d => this._overlapsExisting(d, startMin, endMin));
+    if (conflicts.length > 0) {
+      const dayLabels = conflicts.map(d => this._t("daysShort")[d]).join(", ");
+      alert(`다음 요일에 이미 겹치는 블록이 있어 저장할 수 없습니다: ${dayLabels}`);
       return;
     }
-    
-    const form = e.target;
-    const startVal = form.querySelector("#start").value;
-    const endVal = form.querySelector("#end").value;
-
-    if (!startVal || !endVal) {
-      alert("시작 시간과 종료 시간을 모두 입력해주세요.");
-      return;
-    }
-
-    if (startVal >= endVal) {
-      alert("종료 시간은 시작 시간보다 늦어야 합니다.");
-      return;
-    }
-
-    // HH:MM 포맷에 :00을 붙여 HH:MM:00 형식으로 변환 (HA WebSocket 규격)
-    const start = startVal + ":00";
-    const end = endVal + ":00";
-
+    const from = this._minutesToTimeStr(startMin);
+    const to = this._minutesToTimeStr(endMin);
     const updatedData = { ...this._scheduleData };
-    
     for (const dayIdx of this._addFormDays) {
       const dayStr = WEEKDAYS[dayIdx];
       const currentBlocks = updatedData[dayStr] ? [...updatedData[dayStr]] : [];
-      currentBlocks.push({ from: start, to: end });
+      currentBlocks.push({ from, to });
       updatedData[dayStr] = currentBlocks;
     }
-    
     this._scheduleData = updatedData;
-    this._showAddForm = false;
+    this._pendingBlock = null;
+    this._addFormDays = [];
     this._updateSchedule();
   }
 
@@ -381,8 +532,8 @@ class HaCustomScheduleCard extends LitElement {
         wednesday: [{from: "09:00:00", to: "18:00:00"}],
         thursday: [{from: "09:00:00", to: "18:00:00"}],
         friday: [{from: "09:00:00", to: "12:00:00"}, {from: "13:00:00", to: "18:00:00"}],
-        saturday: [],
-        sunday: []
+        saturday: [{from: "07:00:00", to: "09:00:00"}, {from: "20:00:00", to: "23:00:00"}],
+        sunday: [{from: "10:00:00", to: "22:00:00"}]
       };
     }
 
@@ -407,54 +558,117 @@ class HaCustomScheduleCard extends LitElement {
         </div>
 
         <div class="card-content">
-            <div class="days-container">
-              ${WEEKDAYS.map((_, i) => html`
-                <div class="day-chip ${this._selectedDay === i ? 'selected' : ''}" @click="${() => { this._selectedDay = i; this._showAddForm = false; }}">
-                  ${this._t("days")[i]}
-                </div>
-              `)}
-            </div>
-
-            <!-- 주간 타임라인 -->
-            <div class="weekly-timeline">
-              <div class="timeline-time-labels">
-                <span>0</span><span>6</span><span>12</span><span>18</span><span>24</span>
-              </div>
-              <div class="weekly-columns">
-                ${WEEKDAYS.map((day, idx) => {
-                  const dayBlocks = renderData ? (renderData[day] || []) : [];
-                  const isSelected = this._selectedDay === idx;
-                  const MINUTES_IN_DAY = 1440;
-                  return html`
-                    <div class="weekly-col ${isSelected ? 'selected' : ''}" @click="${() => { this._selectedDay = idx; this._showAddForm = false; }}">
-                      <div class="weekly-bar-v">
-                        ${dayBlocks.map(block => {
-                          const startMin = this._timeToMinutes(block.from);
-                          const endMin = this._timeToMinutes(block.to);
-                          const top = (startMin / MINUTES_IN_DAY) * 100;
-                          const height = ((endMin - startMin) / MINUTES_IN_DAY) * 100;
-                          return html`
-                            <div class="timeline-block-v"
-                                 style="top: ${top}%; height: ${Math.max(height, 0.5)}%;"
-                                 title="${this._formatTime(block.from)} ~ ${this._formatTime(block.to)}">
-                            </div>
-                          `;
-                        })}
-                        ${(() => {
-                          const now = new Date();
-                          const todayIdx = (now.getDay() + 6) % 7;
-                          if (todayIdx !== idx) return '';
-                          const nowMin = now.getHours() * 60 + now.getMinutes();
-                          const pos = (nowMin / MINUTES_IN_DAY) * 100;
-                          return html`<div class="timeline-now-h" style="top: ${pos}%;"></div>`;
-                        })()}
-                      </div>
-                      <span class="weekly-day-label-v">${this._t("daysShort")[idx]}</span>
+            <!-- 단일 컬럼 데이 에디터 -->
+            ${(() => {
+              const MINUTES_IN_DAY = 1440;
+              const selDayStr = WEEKDAYS[this._selectedDay] || WEEKDAYS[0];
+              const selDayBlocks = renderData ? (renderData[selDayStr] || []) : [];
+              const isDragging = this._dragDay === this._selectedDay && this._dragStartMin !== null;
+              const dragStart = isDragging ? Math.min(this._dragStartMin, this._dragEndMin) : 0;
+              const dragEnd = isDragging ? Math.max(this._dragStartMin, this._dragEndMin) : 0;
+              const now = new Date();
+              const todayIdx = (now.getDay() + 6) % 7;
+              const showNow = todayIdx === this._selectedDay;
+              const nowPos = showNow ? ((now.getHours() * 60 + now.getMinutes()) / MINUTES_IN_DAY) * 100 : 0;
+              return html`
+                <div class="day-editor">
+                  <div class="day-editor-grid">
+                    <div class="hour-labels-col">
+                      ${Array.from({length: 25}, (_, h) => html`<span>${h}</span>`)}
                     </div>
-                  `;
-                })}
-              </div>
-            </div>
+                    <div class="editor-column"
+                         @pointerdown="${(e) => this._onBarPointerDown(e, this._selectedDay)}"
+                         @pointermove="${(e) => this._onBarPointerMove(e, this._selectedDay)}"
+                         @pointerup="${(e) => this._onBarPointerUp(e, this._selectedDay)}"
+                         @pointercancel="${(e) => this._onBarPointerUp(e, this._selectedDay)}">
+                      ${Array.from({length: 24}, (_, h) => html`
+                        <div class="hour-gridline" style="top: ${(h / 24) * 100}%;"></div>
+                      `)}
+                      ${selDayBlocks.map((block, blockIdx) => {
+                        const startMin = this._timeToMinutes(block.from);
+                        const endMin = this._timeToMinutes(block.to);
+                        const top = (startMin / MINUTES_IN_DAY) * 100;
+                        const height = ((endMin - startMin) / MINUTES_IN_DAY) * 100;
+                        const blockKey = `${selDayStr}-${blockIdx}`;
+                        const isSelectedBlock = this._selectedBlockKey === blockKey;
+                        return html`
+                          <div class="editor-block ${isSelectedBlock ? 'selected' : ''}"
+                               style="top: ${top}%; height: ${Math.max(height, 0.5)}%;"
+                               title="${this._formatTime(block.from)} ~ ${this._formatTime(block.to)}"
+                               @click="${(e) => this._selectBlock(e, selDayStr, blockIdx)}"
+                               @pointerdown="${(e) => e.stopPropagation()}">
+                            ${isSelectedBlock ? html`
+                              <span class="block-time-pill">${block.from.slice(0,5)}~${block.to.slice(0,5)}</span>
+                              <span class="block-handle handle-top"
+                                    @pointerdown="${(e) => this._onHandlePointerDown(e, selDayStr, blockIdx, 'top')}"
+                                    @pointermove="${(e) => this._onHandlePointerMove(e, selDayStr, blockIdx, 'top')}"
+                                    @pointerup="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'top')}"
+                                    @pointercancel="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'top')}"></span>
+                              <span class="block-handle handle-bottom"
+                                    @pointerdown="${(e) => this._onHandlePointerDown(e, selDayStr, blockIdx, 'bottom')}"
+                                    @pointermove="${(e) => this._onHandlePointerMove(e, selDayStr, blockIdx, 'bottom')}"
+                                    @pointerup="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'bottom')}"
+                                    @pointercancel="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'bottom')}"></span>
+                              <button class="block-delete" @click="${(e) => this._deleteSelectedBlock(e, selDayStr, block)}" title="삭제">
+                                <span>−</span>
+                              </button>
+                            ` : ''}
+                          </div>
+                        `;
+                      })}
+                      ${this._pendingBlock ? html`
+                        <div class="editor-block pending"
+                             style="top: ${(this._pendingBlock.startMin / MINUTES_IN_DAY) * 100}%; height: ${Math.max(((this._pendingBlock.endMin - this._pendingBlock.startMin) / MINUTES_IN_DAY) * 100, 0.5)}%;">
+                          <span class="block-time-label">${this._minutesToTimeStr(this._pendingBlock.startMin).slice(0,5)} ~ ${this._minutesToTimeStr(this._pendingBlock.endMin).slice(0,5)}</span>
+                        </div>
+                      ` : ''}
+                      ${isDragging ? (() => {
+                        const overlaps = this._currentDragOverlaps(this._selectedDay);
+                        return html`
+                          <div class="editor-block pending dragging ${overlaps ? 'conflict' : ''}"
+                               style="top: ${(dragStart / MINUTES_IN_DAY) * 100}%; height: ${Math.max(((dragEnd - dragStart) / MINUTES_IN_DAY) * 100, 0.5)}%;">
+                            <span class="block-time-label">${overlaps ? '⚠ ' : ''}${this._minutesToTimeStr(dragStart).slice(0,5)} ~ ${this._minutesToTimeStr(dragEnd).slice(0,5)}</span>
+                          </div>
+                        `;
+                      })() : ''}
+                      ${showNow ? html`<div class="now-dot" style="top: ${nowPos}%;"></div>` : ''}
+                    </div>
+                  </div>
+                </div>
+
+                ${this._pendingBlock ? html`
+                  <div class="repeat-section">
+                    <div class="repeat-label">${this._t("repeat") || "반복"}</div>
+                    <div class="repeat-days">
+                      ${WEEKDAYS.map((_, i) => {
+                        const conflicts = this._overlapsExisting(i, this._pendingBlock.startMin, this._pendingBlock.endMin);
+                        const selected = this._addFormDays.includes(i);
+                        return html`
+                          <div class="repeat-pill ${selected ? 'selected' : ''} ${conflicts ? 'conflict' : ''}"
+                               title="${conflicts ? '이 요일은 기존 블록과 겹칩니다' : ''}"
+                               @click="${() => { if (!conflicts) this._togglePendingDay(i); }}">
+                            ${this._t("daysShort")[i]}
+                          </div>
+                        `;
+                      })}
+                    </div>
+                    <div class="repeat-actions">
+                      <button class="ghost-btn" @click="${this._cancelPending}">${this._t("cancel") || "취소"}</button>
+                      <button class="primary-btn" @click="${this._savePending}" ?disabled=${this._addFormDays.length === 0 || this._isEditing}>${this._t("save") || "저장"}</button>
+                    </div>
+                  </div>
+                ` : html`
+                  <div class="day-switcher">
+                    ${WEEKDAYS.map((_, i) => html`
+                      <div class="day-pill ${this._selectedDay === i ? 'selected' : ''}"
+                           @click="${() => { this._selectedDay = i; }}">
+                        ${this._t("daysShort")[i]}
+                      </div>
+                    `)}
+                  </div>
+                `}
+              `;
+            })()}
 
             <div class="blocks-container">
               ${sortedBlocks.length === 0 ? html`
@@ -476,61 +690,6 @@ class HaCustomScheduleCard extends LitElement {
               `})}
             </div>
 
-            ${this._showAddForm ? html`
-              <form class="add-form" @submit="${this._addBlock}">
-                <div class="form-days">
-                  <label style="display:block; font-size: 0.85rem; color: var(--custom-secondary); margin-bottom: 8px;">적용할 요일</label>
-                  <div class="day-chip-group" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;">
-                    ${WEEKDAYS.map((_, i) => html`
-                      <div class="day-chip form-chip ${this._addFormDays.includes(i) ? 'selected' : ''}"
-                           style="padding: 8px 14px; font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 8px; border: 1px solid var(--custom-border); background: ${this._addFormDays.includes(i) ? 'var(--custom-active-bg)' : 'transparent'}; color: ${this._addFormDays.includes(i) ? 'var(--custom-primary)' : 'var(--custom-secondary)'}; transition: all 0.2s ease;"
-                           @click="${() => {
-                             if(this._addFormDays.includes(i)) {
-                               this._addFormDays = this._addFormDays.filter(d => d !== i);
-                             } else {
-                               this._addFormDays = [...this._addFormDays, i];
-                             }
-                           }}">
-                        ${this._t("days")[i]}
-                      </div>
-                    `)}
-                    <div class="day-chip form-chip ${this._addFormDays.length === 7 ? 'selected' : ''}"
-                         style="padding: 8px 14px; font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 8px; border: 1px solid var(--custom-border); background: ${this._addFormDays.length === 7 ? 'var(--custom-active-bg)' : 'transparent'}; color: ${this._addFormDays.length === 7 ? 'var(--custom-primary)' : 'var(--custom-secondary)'}; transition: all 0.2s ease;"
-                         @click="${() => {
-                           if(this._addFormDays.length === 7) {
-                             this._addFormDays = [];
-                           } else {
-                             this._addFormDays = [0,1,2,3,4,5,6];
-                           }
-                         }}">
-                      ${this._t("everyday")}
-                    </div>
-                  </div>
-                </div>
-                <div class="time-inputs">
-                  <div class="input-group">
-                    <label>${this._t("startTime")}</label>
-                    <input type="time" id="start" required>
-                  </div>
-                  <div class="input-group">
-                    <label>${this._t("endTime")}</label>
-                    <input type="time" id="end" required>
-                  </div>
-                </div>
-                <button type="submit" class="primary-btn" ?disabled=${this._isEditing || this._addFormDays.length === 0}>
-                  <ha-icon icon="mdi:plus-circle"></ha-icon>
-                  ${this._t("add")}
-                </button>
-              </form>
-            ` : html`
-              <button class="add-new-btn" @click="${() => {
-                this._showAddForm = true;
-                this._addFormDays = this._selectedDay === EVERYDAY_INDEX ? [0,1,2,3,4,5,6] : [this._selectedDay];
-              }}">
-                <ha-icon icon="mdi:plus"></ha-icon>
-                ${this._t("addBlock")}
-              </button>
-            `}
         </div>
       </ha-card>
     `;
@@ -824,15 +983,7 @@ class HaCustomScheduleCard extends LitElement {
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── 요일 칩 ── */
-    .days-container {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 24px;
-      gap: 4px;
-      flex-wrap: wrap;
-    }
-
+    /* ── 요일 칩 (form 전용) ── */
     .day-chip {
       flex: 1;
       text-align: center;
@@ -872,101 +1023,308 @@ class HaCustomScheduleCard extends LitElement {
       border-color: transparent;
     }
 
-    /* ── 주간 타임라인 ── */
-    .weekly-timeline {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 20px;
-      height: 200px;
+    /* ── 데이 에디터 (단일 컬럼) ── */
+    .day-editor {
+      margin-bottom: 16px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 12px;
+      padding: 12px 8px;
     }
 
-    .timeline-time-labels {
+    .day-editor-grid {
+      display: flex;
+      gap: 8px;
+      height: 540px;
+    }
+
+    .hour-labels-col {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding-bottom: 22px;
       flex-shrink: 0;
+      width: 24px;
+      text-align: right;
+      padding-right: 4px;
     }
 
-    .timeline-time-labels span {
-      font-size: 0.6rem;
+    .hour-labels-col span {
+      font-size: 0.7rem;
       color: var(--custom-secondary);
-      opacity: 0.6;
+      opacity: 0.55;
       line-height: 1;
+      transform: translateY(-50%);
     }
 
-    .weekly-columns {
-      display: flex;
-      flex: 1;
-      gap: 4px;
-    }
+    .hour-labels-col span:first-child { transform: translateY(0); }
+    .hour-labels-col span:last-child { transform: translateY(-100%); }
 
-    .weekly-col {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      flex: 1;
-      gap: 4px;
-      cursor: pointer;
-      border-radius: 6px;
-      padding: 2px;
-      transition: background 0.15s ease;
-    }
-
-    .weekly-col:hover {
-      background: rgba(255,255,255,0.04);
-    }
-
-    .weekly-col.selected {
-      background: rgba(3, 169, 244, 0.08);
-    }
-
-    .weekly-col.selected .weekly-day-label-v {
-      color: var(--custom-primary);
-      font-weight: 600;
-    }
-
-    .weekly-bar-v {
+    .editor-column {
       position: relative;
       flex: 1;
-      width: 100%;
-      background: rgba(255,255,255,0.04);
-      border-radius: 4px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
       border: 1px solid rgba(255,255,255,0.06);
       overflow: hidden;
+      cursor: crosshair;
+      touch-action: none;
+      user-select: none;
     }
 
-    .timeline-block-v {
-      position: absolute;
-      left: 2px;
-      right: 2px;
-      background: linear-gradient(180deg, var(--custom-primary), rgba(3, 169, 244, 0.6));
-      border-radius: 3px;
-      min-height: 2px;
-      transition: opacity 0.2s ease;
-    }
-
-    .timeline-block-v:hover {
-      opacity: 0.8;
-      box-shadow: 0 0 6px rgba(3, 169, 244, 0.5);
-    }
-
-    .timeline-now-h {
+    .hour-gridline {
       position: absolute;
       left: 0;
       right: 0;
-      height: 2px;
-      background: #ff5252;
-      box-shadow: 0 0 4px rgba(255, 82, 82, 0.6);
-      z-index: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.05);
+      pointer-events: none;
     }
 
-    .weekly-day-label-v {
+    .editor-block {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      background: linear-gradient(180deg, var(--custom-primary), rgba(3, 169, 244, 0.75));
+      border-radius: 4px;
+      min-height: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: opacity 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .editor-block:hover:not(.pending):not(.selected) {
+      opacity: 0.9;
+      box-shadow: 0 0 8px rgba(3, 169, 244, 0.5);
+    }
+
+    .editor-block.selected {
+      background: rgba(13, 71, 161, 0.55);
+      border: 1.5px solid var(--custom-primary);
+      box-shadow: 0 0 10px rgba(3, 169, 244, 0.3);
+      overflow: visible;
+      z-index: 4;
+    }
+
+    .block-time-pill {
+      position: absolute;
+      top: -28px;
+      left: 0;
+      background: rgba(40, 40, 40, 0.95);
+      color: #fff;
       font-size: 0.75rem;
-      color: var(--custom-secondary);
-      text-align: center;
-      flex-shrink: 0;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .block-handle {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      background: var(--custom-primary);
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      z-index: 5;
+      touch-action: none;
+      cursor: ns-resize;
+    }
+
+    .block-handle::after {
+      content: "";
+      position: absolute;
+      inset: -10px;
+    }
+
+    .block-handle.handle-top {
+      top: -7px;
+      left: calc(50% - 50px);
+    }
+
+    .block-handle.handle-bottom {
+      bottom: -7px;
+      right: calc(50% - 50px);
+    }
+
+    .block-delete {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 22px;
+      height: 22px;
+      background: #d32f2f;
+      color: #fff;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      font-size: 1rem;
       line-height: 1;
+      font-weight: 700;
+      z-index: 5;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    .block-delete:hover {
+      background: #b71c1c;
+    }
+
+    .block-delete span {
+      transform: translateY(-1px);
+    }
+
+    .editor-block.pending {
+      background: linear-gradient(180deg, rgba(3, 169, 244, 0.7), rgba(3, 169, 244, 0.45));
+      border: 1.5px dashed #ffffff66;
+      z-index: 2;
+    }
+
+    .editor-block.dragging {
+      border-style: solid;
+    }
+
+    .editor-block.conflict {
+      background: linear-gradient(180deg, rgba(255, 82, 82, 0.7), rgba(255, 82, 82, 0.45));
+      border-color: #ff5252;
+    }
+
+    .repeat-pill.conflict {
+      opacity: 0.35;
+      cursor: not-allowed;
+      text-decoration: line-through;
+    }
+
+    .repeat-pill.conflict:hover {
+      background: transparent;
+    }
+
+    .block-time-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+      pointer-events: none;
+      padding: 0 6px;
+      white-space: nowrap;
+    }
+
+    .now-dot {
+      position: absolute;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      background: #ff5252;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 6px rgba(255, 82, 82, 0.7);
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* ── 요일 스위처 (뷰 전환) ── */
+    .day-switcher {
+      display: flex;
+      justify-content: space-around;
+      gap: 4px;
+      margin-bottom: 16px;
+      padding: 0 4px;
+    }
+
+    .day-pill {
+      flex: 1;
+      text-align: center;
+      padding: 8px 0;
+      font-size: 0.85rem;
+      color: var(--custom-secondary);
+      cursor: pointer;
+      border-radius: 999px;
+      transition: all 0.15s ease;
+    }
+
+    .day-pill:hover {
+      background: rgba(255,255,255,0.04);
+    }
+
+    .day-pill.selected {
+      color: var(--custom-primary);
+      background: rgba(3, 169, 244, 0.12);
+      font-weight: 600;
+    }
+
+    /* ── 반복 섹션 (저장 전) ── */
+    .repeat-section {
+      background: rgba(255,255,255,0.03);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .repeat-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--primary-text-color, #fff);
+      margin-bottom: 12px;
+    }
+
+    .repeat-days {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .repeat-pill {
+      flex: 1;
+      max-width: 44px;
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--custom-secondary);
+      cursor: pointer;
+      border: 1.5px solid transparent;
+      transition: all 0.15s ease;
+    }
+
+    .repeat-pill:hover {
+      background: rgba(255,255,255,0.05);
+    }
+
+    .repeat-pill.selected {
+      color: var(--custom-primary);
+      border-color: var(--custom-primary);
+    }
+
+    .repeat-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .ghost-btn {
+      background: transparent;
+      color: var(--custom-secondary);
+      border: 1px solid var(--custom-border);
+      padding: 8px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .ghost-btn:hover {
+      background: rgba(255,255,255,0.04);
     }
 
     /* ── 시간 블록 ── */
@@ -1032,98 +1390,21 @@ class HaCustomScheduleCard extends LitElement {
       cursor: not-allowed;
     }
 
-    .add-new-btn {
-      width: 100%;
-      padding: 14px;
-      background: transparent;
-      border: 2px dashed var(--custom-border);
-      border-radius: 12px;
-      color: var(--custom-secondary);
-      font-size: 0.95rem;
-      font-weight: 500;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: all 0.2s;
-    }
-
-    .add-new-btn:hover {
-      border-color: var(--custom-primary);
-      color: var(--custom-primary);
-      background: rgba(3, 169, 244, 0.05);
-    }
-
-    .add-form {
-      background: rgba(0,0,0,0.15);
-      border: 1px solid var(--custom-border);
-      border-radius: 12px;
-      padding: 16px;
-      animation: slideDown 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-    }
-
-    .time-inputs {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-
-    .input-group {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .input-group label {
-      font-size: 0.85rem;
-      color: var(--custom-secondary);
-    }
-
-    input[type="time"] {
-      padding: 12px;
-      background: rgba(0,0,0,0.2);
-      border: 1px solid var(--custom-border);
-      color: var(--custom-text);
-      border-radius: 8px;
-      font-size: 1rem;
-      outline: none;
-      font-family: inherit;
-      color-scheme: dark;
-    }
-
-    input[type="time"]::-webkit-calendar-picker-indicator {
-      /* color-scheme: dark 설정에 의해 기본적으로 흰색이 되므로 명시적 반전 제거 */
-      opacity: 0.8;
-      cursor: pointer;
-    }
-
     .primary-btn {
-      width: 100%;
-      padding: 12px;
+      padding: 8px 18px;
       background: var(--custom-primary);
       color: var(--text-primary-color, #fff);
       border: none;
       border-radius: 8px;
-      font-size: 1rem;
+      font-size: 0.9rem;
       font-weight: 500;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
       box-shadow: 0 4px 12px rgba(3, 169, 244, 0.3);
       transition: transform 0.1s ease;
     }
 
     .primary-btn:active {
       transform: scale(0.98);
-    }
-
-    @keyframes slideDown {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
     }
   `;
 

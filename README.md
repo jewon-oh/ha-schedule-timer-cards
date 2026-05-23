@@ -1,109 +1,103 @@
 # HA Custom Schedule & Timer Cards
 
-Home Assistant의 순정 `schedule` 및 `timer` 헬퍼를 시각적으로 단일 관리하고, 기기를 연결해 동작 브릿지(Automation)까지 클릭 한 번에 구축해주는 **올인원 커스텀 카드 팩**입니다.
+Home Assistant의 `schedule`, `timer` 헬퍼를 시각적으로 관리하고, 기기 연결 자동화(Bridge)까지 한 번에 생성하는 커스텀 카드입니다.
 
-별도의 설치파일 분리 없이 깔끔하게 구성되어 있으며, 사용자의 Home Assistant 언어 설정에 따라 한국어와 영어 인터페이스가 자동으로 전환됩니다.
+단일 파일로 구성되어 있으며, Home Assistant의 언어 설정에 따라 한국어와 영어가 자동 전환됩니다.
 
-## ✨ 주요 기능
+## 주요 기능
 
-* **스케쥴 자동 생성 마법사 (초간편 설정)** — HA의 복잡한 스케쥴 도우미 생성과 자동화 구축을 클릭 한 번으로 끝냅니다. 대시보드 편집창(좌측)에서 제어할 기기만 선택하면, 자동으로 'Schedule 헬퍼'와 '기기 켜짐/꺼짐 자동화(Bridge)'가 즉시 생성되어 화면에 연결됩니다.
-* **단일 파일 구조** — `timer-schedule-card.js` 하나로 설치와 관리가 간단하며, HACS 커스텀 저장소 등록을 완벽하게 지원합니다.
-* **24시간 주간 타임라인** — 등록된 요일별 시간 블록을 세로 타임라인(열 = 요일, 축 = 0~24시) 형태로 시각화하여 일정을 한눈에 파악할 수 있으며, 현재 시각 표시선을 지원합니다.
-* **매일(Everyday) 통합 관리 탭** — 7개 요일의 공통 시간 블록을 '매일' 탭에서 교집합으로 추출하여 한 번에 확인하고 한꺼번에 삭제/추가할 수 있습니다.
-* **표준 HA UI 호환** — Home Assistant의 Sections 기반 레이아웃에 완벽히 대응하여 디스플레이 크기에 맞게 자동으로 높이를 조절(Auto Resizing)합니다.
-* **다크 테마 최적화** — 모던한 글래스모피즘(Glassmorphism) 스타일로 설계되어 Home Assistant의 다크/라이트 테마에 모두 어울립니다.
+- **스케쥴 자동 생성** — 카드 편집기에서 제어할 기기를 선택하면 Schedule 헬퍼와 켜짐/꺼짐 자동화가 자동으로 생성됩니다.
+- **단일 파일 구조** — `timer-schedule-card.js` 한 개로 설치되며, HACS 커스텀 저장소를 지원합니다.
+- **24시간 주간 타임라인** — 요일별 시간 블록을 세로 타임라인(열 = 요일, 축 = 0~24시)으로 표시하고 현재 시각선을 그립니다.
+- **매일 통합 탭** — 7개 요일의 공통 시간 블록을 교집합으로 모아 한 번에 추가/삭제합니다.
+- **HA Sections 레이아웃 호환** — 디스플레이 크기에 맞춰 카드 높이가 자동 조정됩니다.
+- **다크/라이트 테마 대응** — 글래스모피즘 스타일로 양쪽 테마에 모두 적용됩니다.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/jewon-oh/schedule-ui/master/assets/preview.png" alt="스케쥴 카드 미리보기 UI" width="45%" style="margin-right: 4%;" />
-  <img src="https://raw.githubusercontent.com/jewon-oh/schedule-ui/master/assets/preview-timer.png" alt="타이머 카드 미리보기 UI" width="45%" />
+  <img src="assets/preview.png" alt="스케쥴 카드 미리보기" width="45%" style="margin-right: 4%;" />
+  <img src="assets/preview-timer.png" alt="타이머 카드 미리보기" width="45%" />
 </div>
 
 ---
 
-## 🚀 설치 방법
+## 설치
 
-### HACS를 통한 설치 (권장)
+### HACS (권장)
 
-1. HACS 메뉴를 엽니다.
-2. 우측 상단 메뉴에서 **사용자 지정 저장소(Custom repositories)**를 선택합니다.
-3. 저장소 URL에 아래 주소를 입력합니다.
+1. HACS 메뉴 → 우측 상단 **사용자 지정 저장소(Custom repositories)** 선택
+2. 저장소 URL 입력:
 
    ```text
    https://github.com/jewon-oh/schedule-ui
    ```
-4. 목록에서 `Custom Schedule Card`를 찾아 다운로드(설치)합니다.
-5. 대시보드 리소스 자동 추가를 확인하는 팝업이 나타나면 승인합니다.
+3. 목록에서 `Custom Schedule Card`를 다운로드합니다.
+4. 리소스 자동 추가 팝업이 뜨면 승인합니다.
 
-### 수동 설치 (Manual)
+### 수동 설치
 
-1. `timer-schedule-card.js` 파일을 Home Assistant의 `/config/www/` 디렉토리에 복사합니다.
+1. `timer-schedule-card.js`를 `/config/www/`에 복사합니다.
 2. **설정 → 대시보드 → 리소스**에서 `/local/timer-schedule-card.js`를 `JavaScript Module` 유형으로 추가합니다.
 
 ---
 
-## 🛠 사용 방법
+## 사용 방법
 
-이 카드는 사용자가 직접 YAML을 짤 필요 없이 **HA 대시보드 시각적 편집기(Visual Editor)**에서 모든 것을 해결할 수 있도록 고안되었습니다.
+### 1. 마법사로 자동 생성 (권장)
 
-### 방법 1. 마법사로 자동 생성하기 (권장)
+1. 대시보드 편집 모드에서 `Custom Schedule Card` 또는 `Custom Timer Card`를 추가합니다.
+2. 카드 편집기 하단의 **[ 대상 기기 선택 ]** 드롭다운을 클릭합니다.
+3. 자동으로 켜고 끌 기기를 선택합니다. (종료 시 동작도 지정 가능)
+4. 헬퍼와 브릿지 자동화가 즉시 생성됩니다.
+5. 저장 후 뷰어 화면에서 시간 블록을 추가하면 기기가 연동됩니다.
 
-1. HA 대시보드 편집 모드에서 `Custom Schedule Card` 또는 `Custom Timer Card`를 추가합니다.
-2. 카드 편집기 하단의 **[ ✨ 대상 기기 선택 ]** 드롭다운을 클릭합니다.
-3. 에어컨, 조명, 선풍기 등 **내가 자동으로 켜고 끄고 싶은 기기**를 선택합니다. (종료 시 켤지, 끌지도 지정 가능)
-4. 즉시 HA 환경에 도우미(Helper)와 브릿지 자동화가 생성되며 녹색 메시지가 뜹니다.
-5. 뷰어 화면에서 저장 후 편리하게 시간을 지정하시면 실제 기기가 연동되어 작동합니다!
+### 2. 기존 헬퍼 직접 연결
 
-### 방법 2. 기존 스케쥴/타이머 도우미 직접 연결하기
-
-이미 Home Assistant 설정에서 등록해둔 도우미 헬퍼가 있다면, 카드 에디터의 엔티티 선택 창에서 원하시는 대상을 직접 선택하시면 즉시 뷰어로 연동됩니다.
+이미 등록된 스케쥴/타이머 헬퍼가 있다면, 카드 에디터의 엔티티 선택에서 직접 지정합니다.
 
 ---
 
-## 🛠 구성 요소 리스트
+## 구성 요소
 
-1. **스케쥴 카드**: 세로 24시간 주간 타임라인 관리 및 요일별 통합 제어
-2. **타이머 카드**: 원형 프로그레스 바 및 기기 오프 타이머 지원
+1. **스케쥴 카드** — 세로 24시간 주간 타임라인, 요일 통합 제어
+2. **타이머 카드** — 원형 프로그레스 바, 기기 오프 타이머
 
-### 통합 설치 패키지 추가 시
-HACS 등을 통해 구성 후 `/local/timer-schedule-card.js` 파일 하나만 리소스로 로드해주시면 **두 카드 모두 대시보드에서 마음껏 꺼내 쓰실 수 있습니다.** (복잡함을 없애기 위해 물리적으로 단일 파일로 완전 병합하였습니다!)
+두 카드 모두 `/local/timer-schedule-card.js` 한 파일에 포함되어 있습니다.
 
 ---
 
-## 🗂 카드 설정 구조 (YAML 참조용)
-
-비주얼 에디터 대신 YAML을 선호하시는 경우 아래와 같이 사용할 수 있습니다.
+## YAML 설정
 
 ```yaml
 type: custom:ha-custom-schedule-card
 entity: schedule.livingroom_light      # 스케쥴 엔티티 ID (필수)
-title: 거실 전등 일정                  # 카드 제목 (선택사항)
+title: 거실 전등 일정                  # 카드 제목 (선택)
 ```
 
-| 옵션 | 필수 | 설명 |
-|------|------|------|
-| `entity` | O | 스케쥴 헬퍼의 엔티티 ID. `schedule.*` 도메인만 지원합니다. |
-| `title` | X | 카드 상단에 표시할 제목. 미입력 시 스케쥴의 기본 이름이 표시됩니다. |
+| 옵션       | 필수 | 설명                                  |
+|----------|----|---------------------------------------|
+| `entity` | O  | 스케쥴 헬퍼의 엔티티 ID. `schedule.*` 도메인만 지원. |
+| `title`  | X  | 카드 상단 제목. 미입력 시 스케쥴 기본 이름 사용.         |
 
 ---
 
-## 🔌 자동화 브릿지 동작 원리 (고급)
+## 자동화 브릿지 동작
 
-마법사를 통해 생성된 자동화는 `config/automation/config/{schedule_bridge_ID}` 형태로 HA에 저장됩니다.
+마법사로 생성된 자동화는 `config/automation/config/{schedule_bridge_ID}`에 저장됩니다.
 
 ```text
-schedule.my_device 헬퍼가 ON이 되면 → 자동화 발동 → 대상 기기 turn_on 동작
-schedule.my_device 헬퍼가 OFF가 되면 → 자동화 발동 → 대상 기기 turn_off 동작
+schedule.my_device ON  → 대상 기기 turn_on
+schedule.my_device OFF → 대상 기기 turn_off
 ```
 
-만약, 켜지고 꺼짐을 넘어 특정 밝기, 색상, 온도 등 **나만의 복잡한 조건(Condition)**을 추가하고 싶다면 Home Assistant의 **설정 → 자동화** 메뉴로 들어가 이 카드가 생성해둔 자동화를 직접 수정하여 입맛에 맞게 커스텀 할 수 있습니다.
+밝기, 색상, 온도 등 추가 조건이 필요하면 **설정 → 자동화**에서 생성된 자동화를 직접 수정합니다.
 
 ---
 
-## 🖥 로컬 미리보기 (개발용)
+## 로컬 미리보기 (개발용)
 
-Home Assistant 서버 없이 카드의 순수 UI 레이아웃을 확인하고 싶다면 포함된 `preview.html`을 활용하세요.
+HA 서버 없이 UI만 확인하려면 포함된 `preview.html`을 사용합니다.
 
 ```bash
 python -m http.server 8080
-# http://localhost:8080/preview.html 로 브라우저 접속
+# http://localhost:8080/preview.html
 ```

@@ -16,7 +16,7 @@ const path = require('path');
   console.log("Navigating to Timer Preview...");
   await page.setViewportSize({ width, height: 1000 });
   await page.goto('http://localhost:8080/preview-timer.html', { waitUntil: 'networkidle' });
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(3500);
 
   const timerClip = await page.evaluate(() => {
     const card = document.querySelector('ha-custom-timer-card');
@@ -35,11 +35,20 @@ const path = require('path');
     await page.screenshot({ path: path.join(__dirname, 'assets', 'preview-timer-fallback.png') });
   }
 
-  // 2. Schedule screenshot
+  // 2. Schedule screenshot - 첫 번째 블록을 선택해서 핸들/라벨/삭제버튼이 보이도록
   console.log("Navigating to Schedule Preview...");
-  await page.setViewportSize({ width, height: 1000 });
+  await page.setViewportSize({ width, height: 1100 });
   await page.goto('http://localhost:8080/preview.html', { waitUntil: 'networkidle' });
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(3500);
+
+  // 첫 번째 editor-block을 클릭하여 선택 상태로 만든다
+  await page.evaluate(() => {
+    const card = document.querySelector('ha-custom-schedule-card');
+    if (!card?.shadowRoot) return;
+    const firstBlock = card.shadowRoot.querySelector('.editor-block:not(.pending)');
+    if (firstBlock) firstBlock.click();
+  });
+  await page.waitForTimeout(500);
 
   const scheduleClip = await page.evaluate(() => {
     const card = document.querySelector('ha-custom-schedule-card');
