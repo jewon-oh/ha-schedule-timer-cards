@@ -36,6 +36,17 @@ views:
               1. 설정 → 기기 & 서비스 → 헬퍼 → 헬퍼 만들기 → Schedule / Timer
               2. 이 대시보드 편집 → 카드 추가 → 카드의 entity 칸에 만든 헬퍼 선택
       - type: grid
+        column_span: 4
+        cards:
+          - type: horizontal-stack
+            cards:
+              - type: custom:ha-custom-schedule-card
+                entity: schedule.test_bench_schedule
+                title: Schedule → Living room light
+              - type: custom:ha-custom-timer-card
+                entity: timer.test_bench_timer
+                title: Timer → Living room light
+      - type: grid
         cards:
           - type: entities
             title: Virtual devices (template entities)

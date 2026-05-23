@@ -20,20 +20,19 @@ frontend:
     # The query string is what tells the browser (HA Companion app + mobile
     # Safari especially) to re-fetch the bundle instead of serving the
     # service-worker cached copy. Bump it whenever you ship a new version.
-    - /local/timer-schedule-card.js?v=1.4.4
+    - /local/timer-schedule-card.js?v=1.4.7
 
 # Default dashboard stays in storage mode (so HA's UI editor still works for
 # scratch work). Add a dedicated yaml-mode dashboard for the plugin test bench
 # — it's tracked in git so the layout is reproducible.
 lovelace:
   mode: storage
-  dashboards:
-    schedule-ui-dev:
-      mode: yaml
-      title: Schedule UI Dev
-      icon: mdi:calendar-clock
-      show_in_sidebar: true
-      filename: dashboards/schedule-ui-dev.yaml
+  # The "Schedule UI Dev" test bench dashboard is provisioned via .storage
+  # files (lovelace_dashboards + lovelace.schedule-ui-dev), NOT here:
+  # configuration.yaml's `dashboards:` block forbids `mode: storage`, so
+  # an editable seed layout has to live in storage. The seed JSON is
+  # committed under ha-config/.storage/. The yaml mirror in
+  # dashboards/schedule-ui-dev.yaml is kept as a human-readable backup.
 
 # Allow access from the host machine without IPv6 reverse DNS issues
 # while running with network_mode: host on Docker Desktop.
@@ -60,6 +59,18 @@ logger:
 # entity in the right domain. Toggling the template entity flips the
 # input_boolean, so you can watch the schedule/timer bridge fire end-to-end
 # without any real hardware.
+
+# Test bench timer helper (yaml form is fine — timer.start/cancel services
+# work regardless of source, and the card's edits aren't relevant here).
+# The schedule helper is provisioned as a STORAGE helper instead via
+# ha-config/.storage/schedule, because the card's `schedule/list` WS only
+# returns storage-backed helpers (yaml-declared schedules are invisible
+# to it).
+timer:
+  test_bench_timer:
+    name: Test bench timer
+    duration: "00:05:00"
+    icon: mdi:timer
 
 input_boolean:
   vdev_living_room_light:
