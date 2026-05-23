@@ -113,6 +113,99 @@ const LOCALES = {
   },
 };
 
+// ==========================================
+// Timer Card i18n
+// (Schedule용 LOCALES와 키 충돌을 피하기 위해 별도 객체)
+// ==========================================
+const TIMER_LOCALES = {
+  ko: {
+    addTitle: "+ 시간 추가",
+    start: "시작",
+    pause: "일시정지",
+    resume: "계속",
+    stop: "취소",
+    preset5m: "+5분",
+    preset10m: "+10분",
+    preset30m: "+30분",
+    presetMinus5m: "-5분",
+    presetMinus10m: "-10분",
+    presetMinus30m: "-30분",
+    setDuration: "시간 설정",
+    idleMessage: "대기 중",
+    pausedMessage: "일시정지됨",
+    editorTitle: "타이머 UI 설정",
+    editorEntity: "연동된 타이머 엔티티",
+    editorWizardTitle: "새 타이머 & 자동화 마법사",
+    editorWizardDesc: "기기를 선택하면 타이머 헬퍼와 자동화 브릿지가 즉시 생성됩니다.",
+    editorTargetDevice: "대상 기기 선택 (켜고 끌 기기)",
+    editorActionType: "종료 시 동작",
+    editorActionOff: "장치 끄기",
+    editorActionOn: "장치 켜기",
+    editorActionToggle: "상태 반전",
+    editorCreateStr: "타이머 자동 생성",
+    hoursLabel: "시간",
+    minutesLabel: "분",
+    secondsLabel: "초",
+    hoursStr: "시간",
+    minutesStr: "분",
+    secondsStr: "초",
+    countdownMessage: "후에 기기가 종료됩니다.",
+    bridgeDescription: "Timer UI 카드에서 자동으로 생성한 브릿지입니다.",
+    errorPrefix: "생성 중 오류가 발생했습니다: ",
+    timerSuffix: " 타이머",
+    cardName: "타이머 카드",
+    cardDescription: "타이머 헬퍼를 제어하고, 기기를 선택하면 자동화 브릿지를 자동 생성합니다.",
+    defaultTitle: "타이머 설정",
+    helperFailMsg: "(안내) 타이머 헬퍼 생성 실패. 해당 HA 버전에서는 플러그인이 헬퍼를 완전 자동 생성할 수 없습니다. 수동 구성 권장.",
+    timerBridgeAliasPrefix: "타이머 브릿지: ",
+    syncingMessage: "동기화 중입니다...",
+    generatedTimerLabel: " (생성된 타이머)",
+  },
+  en: {
+    addTitle: "+ Add Time",
+    start: "Start",
+    pause: "Pause",
+    resume: "Resume",
+    stop: "Cancel",
+    preset5m: "+5m",
+    preset10m: "+10m",
+    preset30m: "+30m",
+    presetMinus5m: "-5m",
+    presetMinus10m: "-10m",
+    presetMinus30m: "-30m",
+    setDuration: "Set Duration",
+    idleMessage: "Idle",
+    pausedMessage: "Paused",
+    editorTitle: "Timer UI Config",
+    editorEntity: "Linked Timer Entity",
+    editorWizardTitle: "New Timer Wizard",
+    editorWizardDesc: "Select a target device to auto-create timer and automation.",
+    editorTargetDevice: "Select Target Device",
+    editorActionType: "Action on finish",
+    editorActionOff: "Turn Off",
+    editorActionOn: "Turn On",
+    editorActionToggle: "Toggle",
+    editorCreateStr: "Auto Create Timer",
+    hoursLabel: "Hours",
+    minutesLabel: "Minutes",
+    secondsLabel: "Seconds",
+    hoursStr: "h",
+    minutesStr: "m",
+    secondsStr: "s",
+    countdownMessage: "until the device turns off.",
+    bridgeDescription: "Bridge automatically created by Timer UI card.",
+    errorPrefix: "Error while creating: ",
+    timerSuffix: " Timer",
+    cardName: "Timer Card",
+    cardDescription: "Control timer helpers, or pick a device to auto-create an automation bridge.",
+    defaultTitle: "Timer Settings",
+    helperFailMsg: "(Notice) Timer helper auto-create failed. This HA version does not allow plugins to create helpers automatically — please configure manually.",
+    timerBridgeAliasPrefix: "Timer bridge: ",
+    syncingMessage: "Syncing...",
+    generatedTimerLabel: " (generated)",
+  },
+};
+
 // 카드 픽커 / 정적 위치에서 사용할 언어 감지 (hass 없이도 동작)
 function detectLang() {
   const lang = (typeof navigator !== "undefined" && navigator.language) || "en";
@@ -1709,94 +1802,6 @@ window.customCards.push({
 
 
 
-const KO_TRANSLATION = {
-  addTitle: "+ 시간 추가",
-  start: "시작",
-  pause: "일시정지",
-  resume: "계속",
-  stop: "취소",
-  preset5m: "+5분",
-  preset10m: "+10분",
-  preset30m: "+30분",
-  presetMinus5m: "-5분",
-  presetMinus10m: "-10분",
-  presetMinus30m: "-30분",
-  setDuration: "시간 설정",
-  idleMessage: "대기 중",
-  pausedMessage: "일시정지됨",
-  editorTitle: "타이머 UI 설정",
-  editorEntity: "연동된 타이머 엔티티",
-  editorWizardTitle: "새 타이머 & 자동화 마법사",
-  editorWizardDesc: "기기를 선택하면 타이머 헬퍼와 자동화 브릿지가 즉시 생성됩니다.",
-  editorTargetDevice: "대상 기기 선택 (켜고 끌 기기)",
-  editorActionType: "종료 시 동작",
-  editorActionOff: "장치 끄기",
-  editorActionOn: "장치 켜기",
-  editorActionToggle: "상태 반전",
-  editorCreateStr: "타이머 자동 생성",
-  hoursLabel: "시간",
-  minutesLabel: "분",
-  secondsLabel: "초",
-  hoursStr: "시간",
-  minutesStr: "분",
-  secondsStr: "초",
-  countdownMessage: "후에 기기가 종료됩니다.",
-  bridgeDescription: "Timer UI 카드에서 자동으로 생성한 브릿지입니다.",
-  errorPrefix: "생성 중 오류가 발생했습니다: ",
-  timerSuffix: " 타이머",
-  cardName: "타이머 카드",
-  cardDescription: "타이머 헬퍼를 제어하고, 기기를 선택하면 자동화 브릿지를 자동 생성합니다.",
-  defaultTitle: "타이머 설정",
-  helperFailMsg: "(안내) 타이머 헬퍼 생성 실패. 해당 HA 버전에서는 플러그인이 헬퍼를 완전 자동 생성할 수 없습니다. 수동 구성 권장.",
-  timerBridgeAliasPrefix: "타이머 브릿지: ",
-  syncingMessage: "동기화 중입니다...",
-  generatedTimerLabel: " (생성된 타이머)"
-};
-
-const EN_TRANSLATION = {
-  addTitle: "+ Add Time",
-  start: "Start",
-  pause: "Pause",
-  resume: "Resume",
-  stop: "Cancel",
-  preset5m: "+5m",
-  preset10m: "+10m",
-  preset30m: "+30m",
-  presetMinus5m: "-5m",
-  presetMinus10m: "-10m",
-  presetMinus30m: "-30m",
-  setDuration: "Set Duration",
-  idleMessage: "Idle",
-  pausedMessage: "Paused",
-  editorTitle: "Timer UI Config",
-  editorEntity: "Linked Timer Entity",
-  editorWizardTitle: "New Timer Wizard",
-  editorWizardDesc: "Select a target device to auto-create timer and automation.",
-  editorTargetDevice: "Select Target Device",
-  editorActionType: "Action on finish",
-  editorActionOff: "Turn Off",
-  editorActionOn: "Turn On",
-  editorActionToggle: "Toggle",
-  editorCreateStr: "Auto Create Timer",
-  hoursLabel: "Hours",
-  minutesLabel: "Minutes",
-  secondsLabel: "Seconds",
-  hoursStr: "h",
-  minutesStr: "m",
-  secondsStr: "s",
-  countdownMessage: "until the device turns off.",
-  bridgeDescription: "Bridge automatically created by Timer UI card.",
-  errorPrefix: "Error while creating: ",
-  timerSuffix: " Timer",
-  cardName: "Timer Card",
-  cardDescription: "Control timer helpers, or pick a device to auto-create an automation bridge.",
-  defaultTitle: "Timer Settings",
-  helperFailMsg: "(Notice) Timer helper auto-create failed. This HA version does not allow plugins to create helpers automatically — please configure manually.",
-  timerBridgeAliasPrefix: "Timer bridge: ",
-  syncingMessage: "Syncing...",
-  generatedTimerLabel: " (generated)"
-};
-
 // ==========================================
 // Main Card
 // ==========================================
@@ -1852,7 +1857,7 @@ class HaCustomTimerCard extends LitElement {
   }
 
   _t(key) {
-    return this._lang === 'ko' ? KO_TRANSLATION[key] : EN_TRANSLATION[key];
+    return TIMER_LOCALES[this._lang]?.[key] ?? TIMER_LOCALES.en[key];
   }
 
   // Parses "HH:MM:SS" into total seconds
@@ -2413,7 +2418,7 @@ class HaCustomTimerCardEditor extends LitElement {
   }
 
   _t(key) {
-    return this._lang === 'ko' ? KO_TRANSLATION[key] : EN_TRANSLATION[key];
+    return TIMER_LOCALES[this._lang]?.[key] ?? TIMER_LOCALES.en[key];
   }
 
   // 1. Target Entity 선택 시 Timer 헬퍼 및 브릿지 자동 생성
@@ -2671,7 +2676,7 @@ class HaCustomTimerCardEditor extends LitElement {
 customElements.define("ha-custom-timer-card-editor", HaCustomTimerCardEditor);
 window.customCards = window.customCards || [];
 (() => {
-  const t = (detectLang() === "ko") ? KO_TRANSLATION : EN_TRANSLATION;
+  const t = TIMER_LOCALES[detectLang()] ?? TIMER_LOCALES.en;
   window.customCards.push({
     type: "ha-custom-timer-card",
     name: t.cardName,
