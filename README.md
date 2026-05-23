@@ -103,18 +103,36 @@ For brightness, color, temperature, or other conditions, edit the generated auto
 
 ## Development
 
-Preview the card UI without a Home Assistant server using the bundled `preview.html`:
-
-```bash
-python -m http.server 8080
-# http://localhost:8080/preview.html
-```
-
-Regenerate screenshots:
+Install dependencies and build the bundle:
 
 ```bash
 npm install
-node timer-screenshot.js
+npm run build      # outputs timer-schedule-card.js
+npm run watch      # rebuild on changes
+```
+
+Preview the card UI without a Home Assistant server using the dev HTML pages:
+
+```bash
+npm run dev        # http-server on :8080
+# http://localhost:8080/dev/preview.html
+# http://localhost:8080/dev/preview-timer.html
+```
+
+Regenerate screenshots (uses Playwright + the dev preview pages):
+
+```bash
+npm run screenshot
+```
+
+Project layout:
+
+```text
+src/        TypeScript sources (built into root timer-schedule-card.js)
+dev/        Browser preview HTML for offline UI testing
+scripts/    Node helpers (screenshot generation)
+assets/     README screenshots
+examples/   YAML automation blueprints
 ```
 
 ## Contributing

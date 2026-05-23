@@ -103,18 +103,36 @@ schedule.my_device OFF → 대상 기기 turn_off
 
 ## 개발
 
-Home Assistant 서버 없이 카드 UI만 확인하려면 포함된 `preview.html`을 사용합니다.
-
-```bash
-python -m http.server 8080
-# http://localhost:8080/preview.html
-```
-
-스크린샷 재생성:
+의존성 설치 및 번들 빌드:
 
 ```bash
 npm install
-node timer-screenshot.js
+npm run build      # 루트 timer-schedule-card.js 생성
+npm run watch      # 변경 시 자동 재빌드
+```
+
+Home Assistant 서버 없이 카드 UI만 확인하려면 `dev/` 폴더의 프리뷰 HTML을 사용합니다.
+
+```bash
+npm run dev        # 8080 포트 정적 서버 기동
+# http://localhost:8080/dev/preview.html
+# http://localhost:8080/dev/preview-timer.html
+```
+
+스크린샷 재생성 (Playwright + 프리뷰 페이지):
+
+```bash
+npm run screenshot
+```
+
+프로젝트 구조:
+
+```text
+src/        TypeScript 소스 (빌드되어 루트 timer-schedule-card.js 생성)
+dev/        브라우저 프리뷰 HTML (오프라인 UI 검증용)
+scripts/    Node 헬퍼 (스크린샷 생성 등)
+assets/     README 스크린샷
+examples/   YAML 자동화 블루프린트
 ```
 
 ## 기여

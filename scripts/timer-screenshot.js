@@ -15,7 +15,7 @@ const path = require('path');
   // 1. Timer screenshot
   console.log("Navigating to Timer Preview...");
   await page.setViewportSize({ width, height: 1000 });
-  await page.goto('http://localhost:8080/preview-timer.html', { waitUntil: 'networkidle' });
+  await page.goto('http://localhost:8080/dev/preview-timer.html', { waitUntil: 'networkidle' });
   await page.waitForTimeout(3500);
 
   const timerClip = await page.evaluate(() => {
@@ -27,18 +27,18 @@ const path = require('path');
   console.log("Timer Clip:", timerClip);
   if (timerClip && timerClip.width > 0) {
     await page.screenshot({
-      path: path.join(__dirname, 'assets', 'preview-timer.png'),
+      path: path.join(__dirname, '..', 'assets', 'preview-timer.png'),
       clip: timerClip,
       scale: 'device'
     });
   } else {
-    await page.screenshot({ path: path.join(__dirname, 'assets', 'preview-timer-fallback.png') });
+    await page.screenshot({ path: path.join(__dirname, '..', 'assets', 'preview-timer-fallback.png') });
   }
 
   // 2. Schedule screenshot - 첫 번째 블록을 선택해서 핸들/라벨/삭제버튼이 보이도록
   console.log("Navigating to Schedule Preview...");
   await page.setViewportSize({ width, height: 1100 });
-  await page.goto('http://localhost:8080/preview.html', { waitUntil: 'networkidle' });
+  await page.goto('http://localhost:8080/dev/preview.html', { waitUntil: 'networkidle' });
   await page.waitForTimeout(3500);
 
   // 첫 번째 editor-block을 클릭하여 선택 상태로 만든다
@@ -59,12 +59,12 @@ const path = require('path');
   console.log("Schedule Clip:", scheduleClip);
   if (scheduleClip && scheduleClip.width > 0) {
     await page.screenshot({
-      path: path.join(__dirname, 'assets', 'preview.png'),
+      path: path.join(__dirname, '..', 'assets', 'preview.png'),
       clip: scheduleClip,
       scale: 'device'
     });
   } else {
-    await page.screenshot({ path: path.join(__dirname, 'assets', 'preview-fallback.png') });
+    await page.screenshot({ path: path.join(__dirname, '..', 'assets', 'preview-fallback.png') });
   }
 
   await browser.close();

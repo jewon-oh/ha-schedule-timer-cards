@@ -10,7 +10,8 @@
   "scripts": {
     "build": "rollup -c",
     "watch": "rollup -c -w",
-    "screenshot": "node run-screenshot.js",
+    "dev": "http-server . -p 8080 --silent",
+    "screenshot": "node scripts/run-screenshot.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
