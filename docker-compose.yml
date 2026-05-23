@@ -1,9 +1,9 @@
 # Local Home Assistant instance for plugin development.
 #
 # Usage:
-#   npm run build        # produces timer-schedule-card.js at repo root
-#   npm run ha:up        # starts HA at http://localhost:8123
-#   npm run watch        # rebuilds on change; browser hard-refresh picks it up
+#   pnpm run build       # produces timer-schedule-card.js at repo root
+#   pnpm run ha:up       # starts HA at http://localhost:8123
+#   pnpm run watch       # rebuilds on change; browser hard-refresh picks it up
 #
 # First launch:
 #   1. Open http://localhost:8123

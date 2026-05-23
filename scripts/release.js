@@ -13,7 +13,7 @@
 //      X.Y.Z[-pre] string).
 //   3. Writes the new version into package.json and the runtime banner in
 //      src/timer-schedule-card.ts.
-//   4. Runs npm run build + npm run smoke to make sure the bump bundles.
+//   4. Runs pnpm run build + pnpm run smoke to make sure the bump bundles.
 //   5. Stages the changed files, commits as "release: vX.Y.Z", tags vX.Y.Z.
 //   6. (Optional, --push) pushes both master and the tag to origin, which
 //      triggers .github/workflows/release.yml to draft the GitHub Release
@@ -94,10 +94,10 @@ fs.writeFileSync(ENTRY, entryText.replace(bannerRe, `$1${next}$2`));
 console.log(`✓ src banner @ v${next}`);
 
 // ── build + smoke ───────────────────────────────────────────────────────
-console.log("→ npm run build");
-shInherit("npm run build");
-console.log("→ npm run smoke");
-shInherit("npm run smoke");
+console.log("→ pnpm run build");
+shInherit("pnpm run build");
+console.log("→ pnpm run smoke");
+shInherit("pnpm run smoke");
 
 // ── commit + tag ────────────────────────────────────────────────────────
 shInherit(`git add package.json src/timer-schedule-card.ts timer-schedule-card.js`);

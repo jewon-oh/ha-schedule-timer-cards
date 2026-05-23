@@ -113,16 +113,18 @@ For brightness, color, temperature, or other conditions, edit the generated auto
 
 Install dependencies and build the bundle:
 
+This project uses [pnpm](https://pnpm.io/) — the pinned version is in `package.json`'s `packageManager` field, so `corepack enable` will pick it up automatically.
+
 ```bash
-npm install
-npm run build      # outputs timer-schedule-card.js
-npm run watch      # rebuild on changes
+pnpm install
+pnpm run build      # outputs timer-schedule-card.js
+pnpm run watch      # rebuild on changes
 ```
 
 Preview the card UI without a Home Assistant server using the dev HTML pages:
 
 ```bash
-npm run dev        # http-server on :8080
+pnpm run dev        # http-server on :8080
 # http://localhost:8080/dev/preview.html
 # http://localhost:8080/dev/preview-timer.html
 ```
@@ -130,7 +132,7 @@ npm run dev        # http-server on :8080
 Run the headless smoke test (loads both previews, asserts the cards mount and emit no console errors):
 
 ```bash
-npm run smoke
+pnpm run smoke
 ```
 
 ### Local Home Assistant instance (recommended for real testing)
@@ -141,10 +143,10 @@ plugin authors usually do — against a real `schedule`/`timer` helper, the actu
 automation bridge — spin up a local HA in Docker:
 
 ```bash
-npm run build       # produces timer-schedule-card.js (bundled into HA via volume mount)
-npm run ha:up       # docker compose up -d; HA listens on http://localhost:8123
-npm run ha:logs     # tail HA logs
-npm run ha:down     # stop and remove the container
+pnpm run build      # produces timer-schedule-card.js (bundled into HA via volume mount)
+pnpm run ha:up      # docker compose up -d; HA listens on http://localhost:8123
+pnpm run ha:logs    # tail HA logs
+pnpm run ha:down    # stop and remove the container
 ```
 
 First launch checklist:
@@ -152,7 +154,7 @@ First launch checklist:
 1. Open `http://localhost:8123`, complete the onboarding wizard.
 2. **Settings → Devices & services → Helpers → Create helper** → add a `Schedule` or `Timer` helper.
 3. Edit any dashboard → **Add Card** → pick *Schedule Card* / *Timer Card* (no manual Lovelace resource registration needed — the bundle is auto-loaded via `frontend.extra_module_url` in [ha-config/configuration.yaml](ha-config/configuration.yaml)).
-4. Rebuild (`npm run build` or `npm run watch`) and hard-refresh the browser to pick up the new bundle.
+4. Rebuild (`pnpm run build` or `pnpm run watch`) and hard-refresh the browser to pick up the new bundle.
 
 `ha-config/` is gitignored except for `configuration.yaml`, so your HA database
 and credentials stay local.
@@ -160,7 +162,7 @@ and credentials stay local.
 Regenerate screenshots (uses Playwright + the dev preview pages):
 
 ```bash
-npm run screenshot
+pnpm run screenshot
 ```
 
 Project layout:

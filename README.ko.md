@@ -112,16 +112,18 @@ schedule.my_device OFF → 대상 기기 turn_off
 
 의존성 설치 및 번들 빌드:
 
+이 프로젝트는 [pnpm](https://pnpm.io/)을 사용합니다. `package.json`의 `packageManager` 필드에 버전이 박혀 있으니 `corepack enable`만 해두면 자동으로 잡힙니다.
+
 ```bash
-npm install
-npm run build      # 루트 timer-schedule-card.js 생성
-npm run watch      # 변경 시 자동 재빌드
+pnpm install
+pnpm run build      # 루트 timer-schedule-card.js 생성
+pnpm run watch      # 변경 시 자동 재빌드
 ```
 
 Home Assistant 서버 없이 카드 UI만 확인하려면 `dev/` 폴더의 프리뷰 HTML을 사용합니다.
 
 ```bash
-npm run dev        # 8080 포트 정적 서버 기동
+pnpm run dev        # 8080 포트 정적 서버 기동
 # http://localhost:8080/dev/preview.html
 # http://localhost:8080/dev/preview-timer.html
 ```
@@ -129,7 +131,7 @@ npm run dev        # 8080 포트 정적 서버 기동
 헤드리스 스모크 테스트 (두 프리뷰를 로드하고 카드 마운트 및 콘솔 에러 0 검증):
 
 ```bash
-npm run smoke
+pnpm run smoke
 ```
 
 ### 로컬 Home Assistant 인스턴스 (실제 테스트 권장)
@@ -139,10 +141,10 @@ npm run smoke
 플러그인 개발자들이 보통 테스트하는 방식대로 검증하려면 Docker로 로컬 HA를 띄우세요.
 
 ```bash
-npm run build       # timer-schedule-card.js 빌드 (HA 컨테이너에 volume mount됨)
-npm run ha:up       # docker compose up -d; HA가 http://localhost:8123 에서 동작
-npm run ha:logs     # HA 로그 실시간 확인
-npm run ha:down     # 컨테이너 정지·삭제
+pnpm run build      # timer-schedule-card.js 빌드 (HA 컨테이너에 volume mount됨)
+pnpm run ha:up      # docker compose up -d; HA가 http://localhost:8123 에서 동작
+pnpm run ha:logs    # HA 로그 실시간 확인
+pnpm run ha:down    # 컨테이너 정지·삭제
 ```
 
 첫 기동 체크리스트:
@@ -150,7 +152,7 @@ npm run ha:down     # 컨테이너 정지·삭제
 1. `http://localhost:8123` 접속 → onboarding 마법사 완료(계정 생성, 위치 등).
 2. **설정 → 기기 & 서비스 → 헬퍼 → 헬퍼 만들기** 에서 `Schedule` 또는 `Timer` 헬퍼 생성.
 3. 대시보드 편집 → **카드 추가** → *Schedule Card* / *Timer Card* 선택. ([ha-config/configuration.yaml](ha-config/configuration.yaml)의 `frontend.extra_module_url` 덕분에 Lovelace 리소스를 따로 등록하지 않아도 자동 로드됩니다.)
-4. 코드 수정 후 `npm run build` 또는 `npm run watch` 실행 → 브라우저 강력 새로고침(Ctrl+F5)으로 새 번들 로드.
+4. 코드 수정 후 `pnpm run build` 또는 `pnpm run watch` 실행 → 브라우저 강력 새로고침(Ctrl+F5)으로 새 번들 로드.
 
 `ha-config/`는 `configuration.yaml`만 추적하고 나머지(HA DB, 인증정보 등)는 gitignore되므로
 로컬 데이터가 저장소로 새지 않습니다.
@@ -158,7 +160,7 @@ npm run ha:down     # 컨테이너 정지·삭제
 스크린샷 재생성 (Playwright + 프리뷰 페이지):
 
 ```bash
-npm run screenshot
+pnpm run screenshot
 ```
 
 프로젝트 구조:

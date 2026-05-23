@@ -1,6 +1,6 @@
 # Plugin test bench. Edit-and-restart cycle:
 #   1. Tweak this file
-#   2. npm run ha:restart
+#   2. pnpm run ha:restart
 #   3. Browser hard refresh
 #
 # To add a Schedule Card / Timer Card here, first create the matching helper
