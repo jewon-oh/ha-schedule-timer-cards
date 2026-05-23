@@ -533,8 +533,6 @@ class HaCustomScheduleCard extends LitElement {
                   const top = (startMin / MINUTES_IN_DAY) * 100;
                   const height = ((endMin - startMin) / MINUTES_IN_DAY) * 100;
                   const isSelected = this._selectedBlockIdx === blockIdx;
-                  // top<7% 인 블록은 pill을 위가 아니라 아래로 보낸다 (잘림 방지)
-                  const pillBelow = top < 7;
                   return html`
                     <button type="button"
                             class="editor-block ${isSelected ? 'selected' : ''}"
@@ -544,7 +542,7 @@ class HaCustomScheduleCard extends LitElement {
                             @click=${(e) => this._selectBlock(e, blockIdx)}
                             @pointerdown=${(e) => e.stopPropagation()}>
                       ${isSelected ? html`
-                        <span class="block-time-pill ${pillBelow ? 'below' : ''}">
+                        <span class="block-time-pill">
                           ${block.from.slice(0, 5)}~${block.to.slice(0, 5)}
                         </span>
                         <span class="block-handle handle-top"
@@ -1059,26 +1057,23 @@ class HaCustomScheduleCard extends LitElement {
       z-index: 4;
     }
 
+    /* time pill은 항상 블록 *안쪽* 좌측 상단에 떠 있다. 카드의 overflow:hidden
+       에 잘리지 않도록 외부(top:-28px)에 띄우는 대신 inside-floating으로
+       위치를 잡는다. 블록 높이가 pill보다 작아 살짝 넘쳐도 카드 안이므로 잘림 0. */
     .block-time-pill {
       position: absolute;
-      top: -28px;
-      left: 0;
-      background: rgba(40, 40, 40, 0.95);
+      top: 4px;
+      left: 4px;
+      background: rgba(0, 0, 0, 0.55);
       color: #fff;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 500;
-      padding: 4px 10px;
+      padding: 3px 8px;
       border-radius: 999px;
       white-space: nowrap;
       pointer-events: none;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
       z-index: 100;
-    }
-
-    /* 블록이 timeline 위쪽에 있으면 pill을 블록 아래로 보낸다 (잘림 방지) */
-    .block-time-pill.below {
-      top: auto;
-      bottom: -28px;
     }
 
     .block-handle {
@@ -1106,10 +1101,12 @@ class HaCustomScheduleCard extends LitElement {
     .block-handle.handle-top    { top: -7px; }
     .block-handle.handle-bottom { bottom: -7px; }
 
+    /* 삭제 버튼도 블록 *안쪽* 우측 상단. 이전엔 top:-10px right:-10px로
+       블록 모서리에 걸려 있어서 ha-card overflow:hidden에 잘렸다. */
     .block-delete {
       position: absolute;
-      top: -10px;
-      right: -10px;
+      top: 4px;
+      right: 4px;
       width: 22px;
       height: 22px;
       background: var(--custom-danger);

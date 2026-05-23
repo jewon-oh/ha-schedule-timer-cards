@@ -267,7 +267,7 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
                 ${Array.from({length:24},(t,e)=>q`
                   <div class="hour-gridline" style="top: ${e/24*100}%;"></div>
                 `)}
-                ${g.map((t,e)=>{const i=this._timeToMinutes(t.from),s=this._timeToMinutes(t.to),r=i/a*100,o=(s-i)/a*100,n=this._selectedBlockIdx===e,c=r<7;return q`
+                ${g.map((t,e)=>{const i=this._timeToMinutes(t.from),s=this._timeToMinutes(t.to),r=i/a*100,o=(s-i)/a*100,n=this._selectedBlockIdx===e;return q`
                     <button type="button"
                             class="editor-block ${n?"selected":""}"
                             style="top: ${r}%; height: ${Math.max(o,.5)}%;"
@@ -276,7 +276,7 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
                             @click=${t=>this._selectBlock(t,e)}
                             @pointerdown=${t=>t.stopPropagation()}>
                       ${n?q`
-                        <span class="block-time-pill ${c?"below":""}">
+                        <span class="block-time-pill">
                           ${t.from.slice(0,5)}~${t.to.slice(0,5)}
                         </span>
                         <span class="block-handle handle-top"
@@ -781,26 +781,23 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
       z-index: 4;
     }
 
+    /* time pill은 항상 블록 *안쪽* 좌측 상단에 떠 있다. 카드의 overflow:hidden
+       에 잘리지 않도록 외부(top:-28px)에 띄우는 대신 inside-floating으로
+       위치를 잡는다. 블록 높이가 pill보다 작아 살짝 넘쳐도 카드 안이므로 잘림 0. */
     .block-time-pill {
       position: absolute;
-      top: -28px;
-      left: 0;
-      background: rgba(40, 40, 40, 0.95);
+      top: 4px;
+      left: 4px;
+      background: rgba(0, 0, 0, 0.55);
       color: #fff;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 500;
-      padding: 4px 10px;
+      padding: 3px 8px;
       border-radius: 999px;
       white-space: nowrap;
       pointer-events: none;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
       z-index: 100;
-    }
-
-    /* 블록이 timeline 위쪽에 있으면 pill을 블록 아래로 보낸다 (잘림 방지) */
-    .block-time-pill.below {
-      top: auto;
-      bottom: -28px;
     }
 
     .block-handle {
@@ -828,10 +825,12 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
     .block-handle.handle-top    { top: -7px; }
     .block-handle.handle-bottom { bottom: -7px; }
 
+    /* 삭제 버튼도 블록 *안쪽* 우측 상단. 이전엔 top:-10px right:-10px로
+       블록 모서리에 걸려 있어서 ha-card overflow:hidden에 잘렸다. */
     .block-delete {
       position: absolute;
-      top: -10px;
-      right: -10px;
+      top: 4px;
+      right: 4px;
       width: 22px;
       height: 22px;
       background: var(--custom-danger);
