@@ -1235,8 +1235,12 @@ class HaCustomScheduleCard extends LitElement {
       transition: background 0.15s ease, color 0.15s ease;
     }
 
-    .day-pill:hover:not(:disabled) {
-      background: rgba(255,255,255,0.04);
+    /* hover effect만 진짜 마우스 환경에서 적용. 모바일은 sticky hover로
+       selected 상태가 흐린 hover background 에 가려지던 문제(특히 iOS)를 방지. */
+    @media (hover: hover) {
+      .day-pill:hover:not(:disabled):not(.selected) {
+        background: rgba(255,255,255,0.04);
+      }
     }
 
     .day-pill.selected {
