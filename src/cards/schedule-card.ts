@@ -22,9 +22,6 @@ class HaCustomScheduleCard extends LitElement {
     _showCreateWizard: { state: true },
     _isCreating: { state: true },
     _createResult: { state: true },
-    _dragStartMin: { state: true },
-    _dragEndMin: { state: true },
-    _isDragging: { state: true },
     _selectedBlockIdx: { state: true },
     _resizingBlockIdx: { state: true },
     _resizingEdge: { state: true },
@@ -44,9 +41,6 @@ class HaCustomScheduleCard extends LitElement {
     this._createResult = null;
     this._lang = "en";
     this._isEditing = false;
-    this._dragStartMin = null;
-    this._dragEndMin = null;
-    this._isDragging = false;
     this._selectedBlockIdx = null;
     this._resizingBlockIdx = null;
     this._resizingEdge = null;
@@ -73,7 +67,7 @@ class HaCustomScheduleCard extends LitElement {
     super.connectedCallback();
     this._onDocPointerDown = (e) => {
       if (this._selectedBlockIdx === null) return;
-      if (this._isDragging || this._resizingBlockIdx !== null) return;
+      if (this._resizingBlockIdx !== null) return;
       // While a confirm modal is open or a save is in flight, leave the
       // selection (and the modal) alone. On mobile (HA Companion), the
       // capture-phase listener used to clear _selectedBlockIdx mid-tap
@@ -341,44 +335,57 @@ class HaCustomScheduleCard extends LitElement {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
   }
 
-  // 드래그로 새 블록 시작
-  _onBarPointerDown(e) {
+  // 빈 영역 클릭 한 번으로 기본 60분 블록 생성. 모바일에서 드래그-생성이
+  // 페이지 스크롤과 충돌해 답답하다는 피드백으로 단순 탭 방식으로 전환.
+  // 만든 블록은 자동 선택되어 즉시 핸들로 길이 조정 가능.
+  async _onColumnClick(e) {
     if (this._isEditing) return;
-    // 기존 블록/핸들/삭제 버튼 위에서 시작한 포인터는 새 블록 생성에서 제외
-    const path = e.composedPath ? e.composedPath() : [];
-    if (path.some(el => el?.classList?.contains?.('editor-block'))) return;
-    this._selectedBlockIdx = null;
-    const bar = e.currentTarget;
-    try { bar.setPointerCapture(e.pointerId); } catch (_) { /* noop */ }
-    const min = this._yToMinutes(bar, e.clientY);
-    this._isDragging = true;
-    this._dragStartMin = min;
-    this._dragEndMin = min;
-  }
+    // 블록/핸들/삭제 버튼/시간 pill 위에서 발생한 click 은 무시.
+    // (블록·삭제는 자체 stopPropagation, 핸들은 click 발생 가능성 차단용)
+    const path = e.composedPath ? e.composedPath() : [e.target];
+    const onBlockPart = path.some(el => {
+      const cls = el?.classList;
+      if (!cls) return false;
+      return cls.contains('editor-block')
+        || cls.contains('block-handle')
+        || cls.contains('block-delete')
+        || cls.contains('block-time-pill');
+    });
+    if (onBlockPart) return;
 
-  _onBarPointerMove(e) {
-    if (!this._isDragging) return;
-    this._dragEndMin = this._yToMinutes(e.currentTarget, e.clientY);
-  }
+    const column = e.currentTarget;
+    const tapMin = this._yToMinutes(column, e.clientY);
 
-  async _onBarPointerUp(e) {
-    if (!this._isDragging) return;
-    const bar = e.currentTarget;
-    try { bar.releasePointerCapture(e.pointerId); } catch (_) { /* noop */ }
-    const start = Math.min(this._dragStartMin, this._dragEndMin);
-    const end = Math.max(this._dragStartMin, this._dragEndMin);
-    this._isDragging = false;
-    this._dragStartMin = null;
-    this._dragEndMin = null;
-    if (end - start < 15) return;
-    if (this._overlapsExisting(start, end)) {
+    // 탭 지점을 시작으로 60분(없으면 다음 블록 직전까지) 블록. 24:00 초과 방지.
+    const DEFAULT_LEN = 60;
+    const sorted = [...this._blocks].sort((a, b) => a.from.localeCompare(b.from));
+    const prevEnd = sorted
+      .map(b => this._timeToMinutes(b.to))
+      .filter(t => t <= tapMin)
+      .reduce((m, t) => Math.max(m, t), 0);
+    const nextStart = sorted
+      .map(b => this._timeToMinutes(b.from))
+      .filter(t => t > tapMin)
+      .reduce((m, t) => Math.min(m, t), 1440);
+
+    // 탭이 기존 블록 위라면 무시(위에서 걸러지지만 방어적으로)
+    if (tapMin < prevEnd) return;
+    const start = Math.max(prevEnd, tapMin);
+    const end = Math.min(nextStart, start + DEFAULT_LEN);
+    if (end - start < 15) {
       this._showToast(this._t("blockOverlap"));
       return;
     }
-    this._blocks = [...this._blocks, {
+
+    const newBlock = {
       from: this._minutesToTimeStr(start),
       to: this._minutesToTimeStr(end),
-    }].sort((a, b) => a.from.localeCompare(b.from));
+    };
+    const nextBlocks = [...this._blocks, newBlock]
+      .sort((a, b) => a.from.localeCompare(b.from));
+    this._blocks = nextBlocks;
+    // 핸들이 바로 보이도록 새 블록을 선택 상태로
+    this._selectedBlockIdx = nextBlocks.findIndex(b => b.from === newBlock.from);
     await this._updateSchedule();
   }
 
@@ -452,14 +459,6 @@ class HaCustomScheduleCard extends LitElement {
       const bEnd = this._timeToMinutes(b.to);
       return startMin < bEnd && endMin > bStart;
     });
-  }
-
-  _currentDragOverlaps() {
-    if (!this._isDragging || this._dragStartMin === null) return false;
-    const s = Math.min(this._dragStartMin, this._dragEndMin);
-    const e = Math.max(this._dragStartMin, this._dragEndMin);
-    if (e - s < 15) return false;
-    return this._overlapsExisting(s, e);
   }
 
   // day-switcher 토글 (multi-select). 최소 1개 보장.
@@ -542,9 +541,6 @@ class HaCustomScheduleCard extends LitElement {
     const customTitle = this._config.title || titleName || this._t("scheduleManager");
 
     const MINUTES_IN_DAY = 1440;
-    const isDragging = this._isDragging;
-    const dragStart = isDragging ? Math.min(this._dragStartMin, this._dragEndMin) : 0;
-    const dragEnd = isDragging ? Math.max(this._dragStartMin, this._dragEndMin) : 0;
     const now = new Date();
     const todayIdx = (now.getDay() + 6) % 7;
     const showNow = effectiveActiveDays.includes(todayIdx);
@@ -571,10 +567,7 @@ class HaCustomScheduleCard extends LitElement {
               <div class="editor-column"
                    role="application"
                    aria-label="${this._t("scheduleManager")}"
-                   @pointerdown=${this._onBarPointerDown}
-                   @pointermove=${this._onBarPointerMove}
-                   @pointerup=${this._onBarPointerUp}
-                   @pointercancel=${this._onBarPointerUp}>
+                   @click=${this._onColumnClick}>
                 ${Array.from({ length: 24 }, (_, h) => html`
                   <div class="hour-gridline" style="top: ${(h / 24) * 100}%;"></div>
                 `)}
@@ -619,19 +612,8 @@ class HaCustomScheduleCard extends LitElement {
                     </button>
                   `;
                 })}
-                ${isDragging ? (() => {
-                  const overlaps = this._currentDragOverlaps();
-                  return html`
-                    <div class="editor-block pending dragging ${overlaps ? 'conflict' : ''}"
-                         style="top: ${(dragStart / MINUTES_IN_DAY) * 100}%; height: ${Math.max(((dragEnd - dragStart) / MINUTES_IN_DAY) * 100, 0.5)}%;">
-                      <span class="block-time-label">
-                        ${overlaps ? '⚠ ' : ''}${this._minutesToTimeStr(dragStart).slice(0, 5)} ~ ${this._minutesToTimeStr(dragEnd).slice(0, 5)}
-                      </span>
-                    </div>
-                  `;
-                })() : ''}
                 ${showNow ? html`<div class="now-line" style="top: ${nowPos}%;"><span class="now-line-label">${this._minutesToTimeStr(now.getHours() * 60 + now.getMinutes()).slice(0, 5)}</span></div>` : ''}
-                ${sortedBlocks.length === 0 && !isDragging ? html`
+                ${sortedBlocks.length === 0 ? html`
                   <div class="timeline-empty-hint">${this._t("empty")}</div>
                 ` : ''}
               </div>
@@ -699,7 +681,7 @@ class HaCustomScheduleCard extends LitElement {
     }
 
     .card-header {
-      padding: 16px 16px 8px 16px;
+      padding: 12px 16px 4px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -731,20 +713,20 @@ class HaCustomScheduleCard extends LitElement {
     }
 
     .card-content {
-      padding: 20px;
+      padding: 8px 16px 14px 16px;
       position: relative;
     }
 
     /* ── 데이 에디터 (단일 컬럼) ── */
     .day-editor {
-      margin-bottom: 16px;
+      margin-bottom: 8px;
       /* secondary-background-color is HA's theme-aware "subtly different
          from the card" tone. On dark themes it darkens slightly, on light
          themes it lightens slightly — works both directions. The previous
          rgba(255,255,255,0.02) only registered on dark backgrounds. */
       background: var(--secondary-background-color, rgba(127,127,127,0.06));
       border-radius: 12px;
-      padding: 12px 8px;
+      padding: 8px 8px;
     }
 
     .day-editor-grid {
@@ -793,8 +775,11 @@ class HaCustomScheduleCard extends LitElement {
          "뱃지가 프레임보다 아래에 렌더링"되는 것처럼 보인다. 블록 자체는
          _yToMinutes()가 0–1440으로 클램프하므로 컬럼 밖으로 나갈 일 없음. */
       overflow: visible;
-      cursor: crosshair;
-      touch-action: none;
+      cursor: pointer;
+      /* v1.4.5: 모바일에서 페이지 스크롤이 카드 위에서 막히던 문제 해결.
+         touch-action:none 은 드래그-생성을 위해 필요했지만 이제 탭으로 생성하므로
+         스크롤 제스처를 브라우저에 양보. 핸들은 자체적으로 touch-action:none. */
+      touch-action: manipulation;
       user-select: none;
     }
 
@@ -1027,7 +1012,7 @@ class HaCustomScheduleCard extends LitElement {
       display: flex;
       justify-content: space-around;
       gap: 4px;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       padding: 0 4px;
     }
 
@@ -1038,7 +1023,7 @@ class HaCustomScheduleCard extends LitElement {
       font: inherit;
       flex: 1;
       text-align: center;
-      padding: 10px 0;
+      padding: 6px 0;
       font-size: 0.85rem;
       color: var(--custom-secondary);
       background: transparent;
@@ -1079,7 +1064,7 @@ class HaCustomScheduleCard extends LitElement {
       color: var(--custom-secondary);
       opacity: 0.75;
       text-align: center;
-      padding: 0 8px 4px;
+      padding: 0 8px;
     }
 
     /* 인라인 토스트 (alert 대체) */

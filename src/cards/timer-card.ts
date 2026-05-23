@@ -303,7 +303,7 @@ class HaCustomTimerCard extends LitElement {
     }
 
     .card-header {
-      padding: 16px 16px 8px 16px;
+      padding: 12px 16px 4px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -346,11 +346,11 @@ class HaCustomTimerCard extends LitElement {
     }
 
     .card-content {
-      padding: 24px;
+      padding: 8px 16px 16px 16px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 20px;
+      gap: 12px;
     }
 
     /* === 숫자 스피너 (대기 상태) === */
@@ -438,12 +438,12 @@ class HaCustomTimerCard extends LitElement {
       color: var(--custom-secondary);
       padding: 0 2px;
       align-self: center;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
     }
 
     /* === 타이머 표시 (동작/일시정지 상태) === */
     .timer-display {
-      padding: 16px 0;
+      padding: 8px 0;
     }
 
     .timer-remaining {
