@@ -1,660 +1,7 @@
-import {
-  LitElement,
-  html,
-  css,
-} from "https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js";
-
-
-// 파일 로드 확인용 버전 로그 (이 메시지가 콘솔에 안 보이면 구버전이 캐시된 것)
-console.log("%c[schedule-ui] v1.3.0 loaded", "color: #03a9f4; font-weight: bold; font-size: 14px;");
-
-const LOCALES = {
-  ko: {
-    addBlock: "새 블록 추가",
-    startTime: "시작 시간",
-    endTime: "종료 시간",
-    add: "시간 블록 추가하기",
-    delete: "삭제",
-    cancel: "취소",
-    save: "저장",
-    repeat: "반복",
-    days: ["월", "화", "수", "목", "금", "토", "일"],
-    daysShort: ["월", "화", "수", "목", "금", "토", "일"],
-    everyday: "매일",
-    empty: "설정된 스케쥴이 없습니다.",
-    errorEntity: "스케쥴 엔티티를 설정해야 합니다.",
-    scheduleManager: "스케쥴 관리",
-    placeholder: "스마트 스케쥴 카드",
-    previewSuffix: " (미리보기)",
-    conflictWarning: "이 요일은 기존 블록과 겹칩니다",
-    // 스케쥴 생성 마법사
-    createRoutine: "새 스케쥴 만들기",
-    routineName: "스케쥴 이름",
-    routineNamePlaceholder: "예: 거실 전등 스케쥴",
-    targetDevice: "대상 기기",
-    create: "스케쥴 생성",
-    creating: "생성 중...",
-    createSuccess: "스케쥴이 생성되었습니다!",
-    createFailed: "스케쥴 생성에 실패했습니다.",
-    createDescription: "기기를 선택하면 스케쥴과 자동화가 자동으로 생성됩니다.",
-    orSelectExisting: "또는 기존 스케쥴을 편집기에서 선택하세요.",
-    goToCard: "카드 편집에서 새 스케쥴을 선택해주세요.",
-    // 에디터
-    editorWizardTitle: "새 스케쥴 만들기 (권장)",
-    editorWizardDesc: "자동화할 기기를 선택하면 스케쥴 제어 장치와 동작 브릿지가 즉시 생성되고 이 카드에 자동으로 연동됩니다.",
-    editorTargetDevice: "제어할 대상 기기 선택",
-    editorCreateSuccess: "생성 및 연결 성공!",
-    editorErrorPrefix: "오류 발생: ",
-    editorAdvanced: "기존 스케쥴 다시 불러오기 및 추가 설정",
-    editorScheduleEntity: "스케쥴 기기 (직접 선택)",
-    editorCardTitle: "카드 표출 제목 (선택사항)",
-    // 카드 픽커
-    cardName: "스케쥴 카드",
-    cardDescription: "스케쥴 헬퍼의 시간 블록을 편집하고, 기기를 선택하면 스케쥴을 자동 생성합니다.",
-    // 다이얼로그 / 자동 생성
-    deleteEverydayConfirm: "이 타임블록은 매일(월~일) 등록되어 있습니다.\n삭제하시면 모든 요일에서 일괄 삭제됩니다. 계속하시겠습니까?",
-    deleteOneConfirm: "선택하신 요일의 스케줄을 삭제하시겠습니까?",
-    conflictAlert: "다음 요일에 이미 겹치는 블록이 있어 저장할 수 없습니다: ",
-    unknownDevice: "알 수 없는 기기",
-    routineSuffix: " 스케쥴",
-    bridgeAliasPrefix: "스케쥴 브릿지: ",
-    bridgeDescPattern: " 스케쥴에 따라 기기를 자동 제어합니다.",
-  },
-  en: {
-    addBlock: "Add New Block",
-    startTime: "Start Time",
-    endTime: "End Time",
-    add: "Add Time Block",
-    delete: "Delete",
-    cancel: "Cancel",
-    save: "Save",
-    repeat: "Repeat",
-    days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    daysShort: ["M", "T", "W", "T", "F", "S", "S"],
-    everyday: "Daily",
-    empty: "No schedules configured.",
-    errorEntity: "You need to define a schedule entity.",
-    scheduleManager: "Schedule Manager",
-    placeholder: "Smart Schedule Card",
-    previewSuffix: " (Preview)",
-    conflictWarning: "This day conflicts with an existing block",
-    // 스케쥴 생성 마법사
-    createRoutine: "Create New Routine",
-    routineName: "Routine Name",
-    routineNamePlaceholder: "e.g. Living Room Light",
-    targetDevice: "Target Device",
-    create: "Create Routine",
-    creating: "Creating...",
-    createSuccess: "Routine created successfully!",
-    createFailed: "Failed to create routine.",
-    createDescription: "Select a device to auto-create a schedule and automation.",
-    orSelectExisting: "Or select an existing schedule in the editor.",
-    goToCard: "Please select the new schedule in card settings.",
-    // Editor
-    editorWizardTitle: "Create New Routine (Recommended)",
-    editorWizardDesc: "Pick a device to auto-create a schedule helper and automation bridge linked to this card.",
-    editorTargetDevice: "Target Device",
-    editorCreateSuccess: "Created and linked successfully!",
-    editorErrorPrefix: "Error: ",
-    editorAdvanced: "Advanced Configuration",
-    editorScheduleEntity: "Schedule Entity",
-    editorCardTitle: "Card Title (Optional)",
-    // Card picker
-    cardName: "Schedule Card",
-    cardDescription: "Edit schedule helper time blocks, or pick a device to auto-create one.",
-    // Dialogs / auto-create
-    deleteEverydayConfirm: "This block is registered for every day (Mon–Sun).\nDeleting will remove it from all days. Continue?",
-    deleteOneConfirm: "Delete this block from the selected day?",
-    conflictAlert: "Cannot save — the following day(s) already have overlapping blocks: ",
-    unknownDevice: "Unknown device",
-    routineSuffix: " Schedule",
-    bridgeAliasPrefix: "Schedule bridge: ",
-    bridgeDescPattern: " — automatically controls the target device per its schedule.",
-  },
-};
-
-// ==========================================
-// Timer Card i18n
-// (Schedule용 LOCALES와 키 충돌을 피하기 위해 별도 객체)
-// ==========================================
-const TIMER_LOCALES = {
-  ko: {
-    addTitle: "+ 시간 추가",
-    start: "시작",
-    pause: "일시정지",
-    resume: "계속",
-    stop: "취소",
-    preset5m: "+5분",
-    preset10m: "+10분",
-    preset30m: "+30분",
-    presetMinus5m: "-5분",
-    presetMinus10m: "-10분",
-    presetMinus30m: "-30분",
-    setDuration: "시간 설정",
-    idleMessage: "대기 중",
-    pausedMessage: "일시정지됨",
-    editorTitle: "타이머 UI 설정",
-    editorEntity: "연동된 타이머 엔티티",
-    editorWizardTitle: "새 타이머 & 자동화 마법사",
-    editorWizardDesc: "기기를 선택하면 타이머 헬퍼와 자동화 브릿지가 즉시 생성됩니다.",
-    editorTargetDevice: "대상 기기 선택 (켜고 끌 기기)",
-    editorActionType: "종료 시 동작",
-    editorActionOff: "장치 끄기",
-    editorActionOn: "장치 켜기",
-    editorActionToggle: "상태 반전",
-    editorCreateStr: "타이머 자동 생성",
-    hoursLabel: "시간",
-    minutesLabel: "분",
-    secondsLabel: "초",
-    hoursStr: "시간",
-    minutesStr: "분",
-    secondsStr: "초",
-    countdownMessage: "후에 기기가 종료됩니다.",
-    bridgeDescription: "Timer UI 카드에서 자동으로 생성한 브릿지입니다.",
-    errorPrefix: "생성 중 오류가 발생했습니다: ",
-    timerSuffix: " 타이머",
-    cardName: "타이머 카드",
-    cardDescription: "타이머 헬퍼를 제어하고, 기기를 선택하면 자동화 브릿지를 자동 생성합니다.",
-    defaultTitle: "타이머 설정",
-    helperFailMsg: "(안내) 타이머 헬퍼 생성 실패. 해당 HA 버전에서는 플러그인이 헬퍼를 완전 자동 생성할 수 없습니다. 수동 구성 권장.",
-    timerBridgeAliasPrefix: "타이머 브릿지: ",
-    syncingMessage: "동기화 중입니다...",
-    generatedTimerLabel: " (생성된 타이머)",
-  },
-  en: {
-    addTitle: "+ Add Time",
-    start: "Start",
-    pause: "Pause",
-    resume: "Resume",
-    stop: "Cancel",
-    preset5m: "+5m",
-    preset10m: "+10m",
-    preset30m: "+30m",
-    presetMinus5m: "-5m",
-    presetMinus10m: "-10m",
-    presetMinus30m: "-30m",
-    setDuration: "Set Duration",
-    idleMessage: "Idle",
-    pausedMessage: "Paused",
-    editorTitle: "Timer UI Config",
-    editorEntity: "Linked Timer Entity",
-    editorWizardTitle: "New Timer Wizard",
-    editorWizardDesc: "Select a target device to auto-create timer and automation.",
-    editorTargetDevice: "Select Target Device",
-    editorActionType: "Action on finish",
-    editorActionOff: "Turn Off",
-    editorActionOn: "Turn On",
-    editorActionToggle: "Toggle",
-    editorCreateStr: "Auto Create Timer",
-    hoursLabel: "Hours",
-    minutesLabel: "Minutes",
-    secondsLabel: "Seconds",
-    hoursStr: "h",
-    minutesStr: "m",
-    secondsStr: "s",
-    countdownMessage: "until the device turns off.",
-    bridgeDescription: "Bridge automatically created by Timer UI card.",
-    errorPrefix: "Error while creating: ",
-    timerSuffix: " Timer",
-    cardName: "Timer Card",
-    cardDescription: "Control timer helpers, or pick a device to auto-create an automation bridge.",
-    defaultTitle: "Timer Settings",
-    helperFailMsg: "(Notice) Timer helper auto-create failed. This HA version does not allow plugins to create helpers automatically — please configure manually.",
-    timerBridgeAliasPrefix: "Timer bridge: ",
-    syncingMessage: "Syncing...",
-    generatedTimerLabel: " (generated)",
-  },
-};
-
-// 카드 픽커 / 정적 위치에서 사용할 언어 감지 (hass 없이도 동작)
-function detectLang() {
-  const lang = (typeof navigator !== "undefined" && navigator.language) || "en";
-  return lang.startsWith("ko") ? "ko" : "en";
-}
-
-const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
-// '매일(Everyday)' 가상 탭의 인덱스 상수
-const EVERYDAY_INDEX = 7;
-
-// 브릿지 자동화 ID 접두사
-const AUTOMATION_PREFIX = "schedule_bridge_";
-
-class HaCustomScheduleCard extends LitElement {
-  static properties = {
-    _config: { state: true },
-    _hass: { state: false },
-    _scheduleData: { state: true },
-    _selectedDay: { state: true },
-    _showCreateWizard: { state: true },
-    _isCreating: { state: true },
-    _createResult: { state: true },
-    _addFormDays: { state: true },
-    _dragDay: { state: true },
-    _dragStartMin: { state: true },
-    _dragEndMin: { state: true },
-    _pendingBlock: { state: true },
-    _selectedBlockKey: { state: true },
-    _resizingBlock: { state: true },
-  };
-
-  constructor() {
-    super();
-    this._scheduleData = null;
-    this._selectedDay = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1; // 0=Mon, 6=Sun
-    this._showCreateWizard = false;
-    this._isCreating = false;
-    this._createResult = null; // { success: boolean, entityId?: string, message?: string }
-    this._lang = "en";
-    this._isEditing = false;
-    this._dragDay = null;
-    this._dragStartMin = null;
-    this._dragEndMin = null;
-    this._pendingBlock = null;
-    this._addFormDays = [];
-    this._selectedBlockKey = null;
-    this._resizingBlock = null;
-  }
-
-  setConfig(config) {
-    this._config = config;
-    if (this._hass) this._loadSchedule();
-  }
-
-  set hass(hass) {
-    const oldHass = this._hass;
-    this._hass = hass;
-
-    let shouldUpdate = !oldHass; // 최초로 hass가 주입될 때 렌더링 강제 트리거
-
-    // 언어 감지
-    if (hass && hass.language) {
-      const newLang = hass.language.startsWith("ko") ? "ko" : "en";
-      if (this._lang !== newLang) {
-        this._lang = newLang;
-        shouldUpdate = true;
-      }
-    }
-
-    if (shouldUpdate) {
-      this.requestUpdate(); // hass 최초 주입 또는 언어 변경 시 화면 갱신
-    }
-
-    // 최초 연결 시 데이터 초기화
-    if (!oldHass && hass && this._config) {
-      this._loadSchedule();
-    }
-  }
-
-  _t(key) {
-    return LOCALES[this._lang][key] || LOCALES["en"][key];
-  }
-
-  async _loadSchedule() {
-    if (!this._hass || !this._config.entity) return;
-
-    try {
-      const result = await this._hass.callWS({
-        type: "schedule/list",
-      });
-      
-      const entityId = this._config.entity;
-      const entitySlug = entityId.split(".")[1];
-      
-      // entity registry에서 unique_id(=storage id)를 WebSocket으로 직접 조회
-      // HA에서 entity_id를 rename하면 slug와 storage id가 달라지므로 필수
-      let storageId = entitySlug;
-      try {
-        const regEntry = await this._hass.callWS({
-          type: "config/entity_registry/get",
-          entity_id: entityId,
-        });
-        if (regEntry && regEntry.unique_id) {
-          storageId = regEntry.unique_id;
-          console.log("[schedule-ui] entity registry → unique_id:", storageId);
-        }
-      } catch (regErr) {
-        console.warn("[schedule-ui] entity registry 조회 실패, slug 사용:", entitySlug, regErr);
-      }
-      
-      // 1차: storage id(unique_id)로 매칭
-      let match = result.find(s => s.id === storageId);
-      
-      // 2차: entity_id slug로 매칭
-      if (!match) {
-        match = result.find(s => s.id === entitySlug);
-      }
-      
-      // 3차: friendly_name으로 매칭
-      if (!match) {
-        const entityState = this._hass.states?.[entityId];
-        const friendlyName = entityState?.attributes?.friendly_name;
-        if (friendlyName) {
-          match = result.find(s => s.name === friendlyName);
-        }
-      }
-      
-      console.log("[schedule-ui] loadSchedule - entity:", entityId, "storageId:", storageId, "matched:", match ? match.id : "NONE");
-      if (!match && result.length > 0) {
-        console.warn("[schedule-ui] 매칭 실패! available ids:", result.map(s => `${s.id}(${s.name})`));
-      }
-
-      if (match) {
-        this._scheduleData = match;
-      }
-    } catch (e) {
-      console.error("[schedule-ui] Failed to load schedules", e);
-    }
-  }
-
-  async _updateSchedule() {
-    if (!this._hass || !this._scheduleData) return;
-    this._isEditing = true;
-    
-    try {
-      const scheduleId = this._scheduleData.id;
-      
-      // HA schedule/update 스키마에 허용된 필드만 전송 (name, icon, 요일별 시간 블록)
-      const updatePayload = {
-        name: this._scheduleData.name,
-      };
-
-      // 아이콘이 있을 경우에만 포함
-      if (this._scheduleData.icon) {
-        updatePayload.icon = this._scheduleData.icon;
-      }
-
-      // 요일별 시간 블록 데이터만 추출
-      for (const day of WEEKDAYS) {
-        updatePayload[day] = this._scheduleData[day] || [];
-      }
-
-      console.log("[schedule-ui] updateSchedule - schedule_id:", scheduleId);
-      console.log("[schedule-ui] updateSchedule - payload:", JSON.stringify(updatePayload, null, 2));
-      
-      const updated = await this._hass.callWS({
-        type: "schedule/update",
-        schedule_id: scheduleId,
-        ...updatePayload
-      });
-      
-      console.log("[schedule-ui] updateSchedule - success:", updated);
-      
-      // 업데이트 후 최신 데이터를 다시 로드하여 동기화
-      await this._loadSchedule();
-    } catch (e) {
-      console.error("[schedule-ui] updateSchedule FAILED:", e);
-      console.error("[schedule-ui] error details:", JSON.stringify(e, null, 2));
-      await this._loadSchedule();
-    } finally {
-      this._isEditing = false;
-    }
-  }
-
-
-
-  // '매일' 탭에서 7개 요일의 공통 시간 블록(교집합)을 계산하는 헬퍼
-  _getEverydayBlocks(dataObj = this._scheduleData) {
-    if (!dataObj) return [];
-    // 첫 번째 요일(월요일)의 블록 목록을 기준으로 시작
-    const baseBlocks = dataObj[WEEKDAYS[0]] || [];
-    // 기준 블록 중에서 7개 요일 모두에 존재하는 것만 필터링
-    return baseBlocks.filter(block =>
-      WEEKDAYS.every(day => {
-        const dayBlocks = dataObj[day] || [];
-        return dayBlocks.some(b => b.from === block.from && b.to === block.to);
-      })
-    );
-  }
-
-  _deleteBlock(day, targetBlock) {
-    if (this._isEditing || !this._scheduleData || !this._config?.entity) return;
-
-    // '매일(Everyday)' 블록인지 우선 판별
-    const everydayBlocks = this._getEverydayBlocks(this._scheduleData);
-    const isTargetEveryday = everydayBlocks.some(b => b.from === targetBlock.from && b.to === targetBlock.to);
-
-    const confirmMsg = isTargetEveryday
-      ? this._t("deleteEverydayConfirm")
-      : this._t("deleteOneConfirm");
-      
-    if (!confirm(confirmMsg)) return;
-
-    const updatedData = { ...this._scheduleData };
-
-    if (isTargetEveryday) {
-      // 7개 요일 모두에 존재하는 매일 타임블록은 한 번에 삭제
-      for (const weekday of WEEKDAYS) {
-        const blocks = updatedData[weekday] || [];
-        updatedData[weekday] = blocks.filter(b => !(b.from === targetBlock.from && b.to === targetBlock.to));
-      }
-    } else {
-      // 특정 요일에만 존재할 경우 해당 요일에서만 삭제
-      if (day) {
-        const currentBlocks = updatedData[day] || [];
-        updatedData[day] = currentBlocks.filter(b => !(b.from === targetBlock.from && b.to === targetBlock.to));
-      }
-    }
-
-    this._scheduleData = updatedData;
-    this._updateSchedule();
-  }
-
-  // 픽셀 Y → 분(15분 스냅)
-  _yToMinutes(barEl, clientY) {
-    const rect = barEl.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
-    const SNAP = 15;
-    const minutes = Math.round((ratio * 1440) / SNAP) * SNAP;
-    return Math.max(0, Math.min(1440, minutes));
-  }
-
-  // 분 → "HH:MM:00"
-  _minutesToTimeStr(min) {
-    const safe = Math.max(0, Math.min(1439, min));
-    const h = Math.floor(safe / 60);
-    const m = safe % 60;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
-  }
-
-  _onBarPointerDown(e, idx) {
-    if (this._isEditing) return;
-    // 기존 블록(또는 그 핸들/라벨/삭제버튼) 클릭은 드래그 생성에서 제외
-    const path = e.composedPath ? e.composedPath() : [];
-    if (path.some(el => el?.classList?.contains?.('editor-block') && !el.classList.contains('pending'))) return;
-    // 빈 공간 클릭 시 선택 해제
-    this._selectedBlockKey = null;
-    const bar = e.currentTarget;
-    try { bar.setPointerCapture(e.pointerId); } catch(_) {}
-    const min = this._yToMinutes(bar, e.clientY);
-    this._dragDay = idx;
-    this._dragStartMin = min;
-    this._dragEndMin = min;
-    this._selectedDay = idx;
-  }
-
-  _selectBlock(e, dayStr, blockIdx) {
-    e.stopPropagation();
-    const key = `${dayStr}-${blockIdx}`;
-    this._selectedBlockKey = this._selectedBlockKey === key ? null : key;
-  }
-
-  _deleteSelectedBlock(e, dayStr, block) {
-    e.stopPropagation();
-    this._selectedBlockKey = null;
-    this._deleteBlock(dayStr, block);
-  }
-
-  _onHandlePointerDown(e, dayStr, blockIdx, edge) {
-    e.stopPropagation();
-    if (this._isEditing) return;
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch(_) {}
-    this._resizingBlock = { dayStr, blockIdx, edge };
-  }
-
-  _onHandlePointerMove(e, dayStr, blockIdx, edge) {
-    const r = this._resizingBlock;
-    if (!r || r.dayStr !== dayStr || r.blockIdx !== blockIdx || r.edge !== edge) return;
-    const column = e.currentTarget.closest('.editor-column');
-    if (!column) return;
-
-    const blocks = (this._scheduleData?.[dayStr]) || [];
-    const block = blocks[blockIdx];
-    if (!block) return;
-
-    const min = this._yToMinutes(column, e.clientY);
-    const fromMin = this._timeToMinutes(block.from);
-    const toMin = this._timeToMinutes(block.to);
-
-    // 다른 블록들의 경계로 클램프
-    const otherBlocks = blocks.filter((_, i) => i !== blockIdx);
-    let newFrom = fromMin;
-    let newTo = toMin;
-
-    if (edge === 'top') {
-      // 이전 블록의 to보다 위로 못 감, 현재 to - 15분보다 아래로 못 감
-      const prevEnd = otherBlocks
-        .map(b => this._timeToMinutes(b.to))
-        .filter(t => t <= toMin)
-        .reduce((max, t) => Math.max(max, t), 0);
-      newFrom = Math.max(prevEnd, Math.min(min, toMin - 15));
-    } else {
-      // 다음 블록의 from 아래로 못 감, 현재 from + 15분보다 위로 못 감
-      const nextStart = otherBlocks
-        .map(b => this._timeToMinutes(b.from))
-        .filter(t => t >= fromMin)
-        .reduce((min2, t) => Math.min(min2, t), 1440);
-      newTo = Math.min(nextStart, Math.max(min, fromMin + 15));
-    }
-
-    if (newFrom === fromMin && newTo === toMin) return;
-
-    const updatedBlocks = blocks.map((b, i) => i === blockIdx
-      ? { from: this._minutesToTimeStr(newFrom), to: this._minutesToTimeStr(newTo) }
-      : b);
-    this._scheduleData = { ...this._scheduleData, [dayStr]: updatedBlocks };
-  }
-
-  _onHandlePointerUp(e, dayStr, blockIdx, edge) {
-    const r = this._resizingBlock;
-    if (!r || r.dayStr !== dayStr || r.blockIdx !== blockIdx || r.edge !== edge) return;
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch(_) {}
-    this._resizingBlock = null;
-    this._updateSchedule();
-  }
-
-  _onBarPointerMove(e, idx) {
-    if (this._dragDay !== idx) return;
-    this._dragEndMin = this._yToMinutes(e.currentTarget, e.clientY);
-  }
-
-  _onBarPointerUp(e, idx) {
-    if (this._dragDay !== idx) return;
-    const bar = e.currentTarget;
-    try { bar.releasePointerCapture(e.pointerId); } catch(_) {}
-    const start = Math.min(this._dragStartMin, this._dragEndMin);
-    const end = Math.max(this._dragStartMin, this._dragEndMin);
-    this._dragDay = null;
-    this._dragStartMin = null;
-    this._dragEndMin = null;
-    if (end - start < 15) return;
-    if (this._overlapsExisting(idx, start, end)) {
-      console.warn("[schedule-ui] 드래그한 시간대가 기존 블록과 겹쳐 무시됨");
-      return;
-    }
-    this._pendingBlock = { startMin: start, endMin: end };
-    this._addFormDays = [idx];
-  }
-
-  // 해당 요일의 기존 블록과 시간 범위가 겹치는지 검사
-  _overlapsExisting(dayIdx, startMin, endMin) {
-    if (!this._scheduleData) return false;
-    const dayStr = WEEKDAYS[dayIdx];
-    const blocks = this._scheduleData[dayStr] || [];
-    return blocks.some(b => {
-      const bStart = this._timeToMinutes(b.from);
-      const bEnd = this._timeToMinutes(b.to);
-      return startMin < bEnd && endMin > bStart;
-    });
-  }
-
-  // 드래그 중 겹침 여부 (UI 피드백용)
-  _currentDragOverlaps(idx) {
-    if (this._dragDay !== idx || this._dragStartMin === null) return false;
-    const s = Math.min(this._dragStartMin, this._dragEndMin);
-    const e = Math.max(this._dragStartMin, this._dragEndMin);
-    if (e - s < 15) return false;
-    return this._overlapsExisting(idx, s, e);
-  }
-
-  _togglePendingDay(idx) {
-    if (!this._pendingBlock) return;
-    this._addFormDays = this._addFormDays.includes(idx)
-      ? this._addFormDays.filter(d => d !== idx)
-      : [...this._addFormDays, idx];
-  }
-
-  _cancelPending() {
-    this._pendingBlock = null;
-    this._addFormDays = [];
-  }
-
-  async _savePending() {
-    if (!this._pendingBlock || !this._scheduleData) return;
-    if (this._addFormDays.length === 0) return;
-    const { startMin, endMin } = this._pendingBlock;
-    const conflicts = this._addFormDays.filter(d => this._overlapsExisting(d, startMin, endMin));
-    if (conflicts.length > 0) {
-      const dayLabels = conflicts.map(d => this._t("daysShort")[d]).join(", ");
-      alert(`${this._t("conflictAlert")}${dayLabels}`);
-      return;
-    }
-    const from = this._minutesToTimeStr(startMin);
-    const to = this._minutesToTimeStr(endMin);
-    const updatedData = { ...this._scheduleData };
-    for (const dayIdx of this._addFormDays) {
-      const dayStr = WEEKDAYS[dayIdx];
-      const currentBlocks = updatedData[dayStr] ? [...updatedData[dayStr]] : [];
-      currentBlocks.push({ from, to });
-      updatedData[dayStr] = currentBlocks;
-    }
-    this._scheduleData = updatedData;
-    this._pendingBlock = null;
-    this._addFormDays = [];
-    this._updateSchedule();
-  }
-
-  _formatTime(timeStr) {
-    if (!timeStr) return "";
-    let [hours, minutes] = timeStr.split(":");
-    let date = new Date();
-    date.setHours(parseInt(hours));
-    date.setMinutes(parseInt(minutes));
-    
-    return new Intl.DateTimeFormat(this._lang, {
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true
-    }).format(date);
-  }
-
-  // "HH:MM:SS" 형식의 시간 문자열을 하루 기준 분(minutes)으로 변환
-  _timeToMinutes(timeStr) {
-    if (!timeStr) return 0;
-    const parts = timeStr.split(":");
-    return parseInt(parts[0]) * 60 + parseInt(parts[1]);
-  }
-
-
-
-  render() {
-    if (!this._config) return html`<ha-card><div class="error">Not configured</div></ha-card>`;
-
-    // 카드 피커 프리뷰 또는 hass 미로드 시: 간단한 플레이스홀더 표시
-    if (!this._hass) {
-      return html`
+const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,i=Symbol(),s=new WeakMap;let r=class{constructor(t,e,s){if(this._$cssResult$=!0,s!==i)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e}get styleSheet(){let t=this.o;const i=this.t;if(e&&void 0===t){const e=void 0!==i&&1===i.length;e&&(t=s.get(i)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&s.set(i,t))}return t}toString(){return this.cssText}};const o=(t,...e)=>{const s=1===t.length?t[0]:e.reduce((e,i,s)=>e+(t=>{if(!0===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(i)+t[s+1],t[0]);return new r(s,t,i)},a=e?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const i of t.cssRules)e+=i.cssText;return(t=>new r("string"==typeof t?t:t+"",void 0,i))(e)})(t):t,{is:n,defineProperty:c,getOwnPropertyDescriptor:d,getOwnPropertyNames:l,getOwnPropertySymbols:h,getPrototypeOf:p}=Object,u=globalThis,g=u.trustedTypes,m=g?g.emptyScript:"",f=u.reactiveElementPolyfillSupport,_=(t,e)=>t,b={toAttribute(t,e){switch(e){case Boolean:t=t?m:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t)}return t},fromAttribute(t,e){let i=t;switch(e){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t)}catch(t){i=null}}return i}},y=(t,e)=>!n(t,e),v={attribute:!0,type:String,converter:b,reflect:!1,useDefault:!1,hasChanged:y};Symbol.metadata??=Symbol("metadata"),u.litPropertyMetadata??=new WeakMap;let x=class extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,e=v){if(e.state&&(e.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(t)&&((e=Object.create(e)).wrapped=!0),this.elementProperties.set(t,e),!e.noAccessor){const i=Symbol(),s=this.getPropertyDescriptor(t,i,e);void 0!==s&&c(this.prototype,t,s)}}static getPropertyDescriptor(t,e,i){const{get:s,set:r}=d(this.prototype,t)??{get(){return this[e]},set(t){this[e]=t}};return{get:s,set(e){const o=s?.call(this);r?.call(this,e),this.requestUpdate(t,o,i)},configurable:!0,enumerable:!0}}static getPropertyOptions(t){return this.elementProperties.get(t)??v}static _$Ei(){if(this.hasOwnProperty(_("elementProperties")))return;const t=p(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties)}static finalize(){if(this.hasOwnProperty(_("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(_("properties"))){const t=this.properties,e=[...l(t),...h(t)];for(const i of e)this.createProperty(i,t[i])}const t=this[Symbol.metadata];if(null!==t){const e=litPropertyMetadata.get(t);if(void 0!==e)for(const[t,i]of e)this.elementProperties.set(t,i)}this._$Eh=new Map;for(const[t,e]of this.elementProperties){const i=this._$Eu(t,e);void 0!==i&&this._$Eh.set(i,t)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(t){const e=[];if(Array.isArray(t)){const i=new Set(t.flat(1/0).reverse());for(const t of i)e.unshift(a(t))}else void 0!==t&&e.push(a(t));return e}static _$Eu(t,e){const i=e.attribute;return!1===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this))}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.()}removeController(t){this._$EO?.delete(t)}_$E_(){const t=new Map,e=this.constructor.elementProperties;for(const i of e.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t)}createRenderRoot(){const i=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return((i,s)=>{if(e)i.adoptedStyleSheets=s.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of s){const s=document.createElement("style"),r=t.litNonce;void 0!==r&&s.setAttribute("nonce",r),s.textContent=e.cssText,i.appendChild(s)}})(i,this.constructor.elementStyles),i}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(t=>t.hostConnected?.())}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.())}attributeChangedCallback(t,e,i){this._$AK(t,i)}_$ET(t,e){const i=this.constructor.elementProperties.get(t),s=this.constructor._$Eu(t,i);if(void 0!==s&&!0===i.reflect){const r=(void 0!==i.converter?.toAttribute?i.converter:b).toAttribute(e,i.type);this._$Em=t,null==r?this.removeAttribute(s):this.setAttribute(s,r),this._$Em=null}}_$AK(t,e){const i=this.constructor,s=i._$Eh.get(t);if(void 0!==s&&this._$Em!==s){const t=i.getPropertyOptions(s),r="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:b;this._$Em=s;const o=r.fromAttribute(e,t.type);this[s]=o??this._$Ej?.get(s)??o,this._$Em=null}}requestUpdate(t,e,i,s=!1,r){if(void 0!==t){const o=this.constructor;if(!1===s&&(r=this[t]),i??=o.getPropertyOptions(t),!((i.hasChanged??y)(r,e)||i.useDefault&&i.reflect&&r===this._$Ej?.get(t)&&!this.hasAttribute(o._$Eu(t,i))))return;this.C(t,e,i)}!1===this.isUpdatePending&&(this._$ES=this._$EP())}C(t,e,{useDefault:i,reflect:s,wrapped:r},o){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,o??e??this[t]),!0!==r||void 0!==o)||(this._$AL.has(t)||(this.hasUpdated||i||(e=void 0),this._$AL.set(t,e)),!0===s&&this._$Em!==t&&(this._$Eq??=new Set).add(t))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(t){Promise.reject(t)}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,e]of this._$Ep)this[t]=e;this._$Ep=void 0}const t=this.constructor.elementProperties;if(t.size>0)for(const[e,i]of t){const{wrapped:t}=i,s=this[e];!0!==t||this._$AL.has(e)||void 0===s||this.C(e,void 0,i,s)}}let t=!1;const e=this._$AL;try{t=this.shouldUpdate(e),t?(this.willUpdate(e),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(e)):this._$EM()}catch(e){throw t=!1,this._$EM(),e}t&&this._$AE(e)}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(t)),this.updated(t)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return!0}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM()}updated(t){}firstUpdated(t){}};x.elementStyles=[],x.shadowRootOptions={mode:"open"},x[_("elementProperties")]=new Map,x[_("finalized")]=new Map,f?.({ReactiveElement:x}),(u.reactiveElementVersions??=[]).push("2.1.2");const $=globalThis,w=t=>t,k=$.trustedTypes,S=k?k.createPolicy("lit-html",{createHTML:t=>t}):void 0,A="$lit$",E=`lit$${Math.random().toFixed(9).slice(2)}$`,T="?"+E,M=`<${T}>`,C=document,D=()=>C.createComment(""),z=t=>null===t||"object"!=typeof t&&"function"!=typeof t,P=Array.isArray,B="[ \t\n\f\r]",O=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,U=/-->/g,H=/>/g,N=RegExp(`>|${B}(?:([^\\s"'>=/]+)(${B}*=${B}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),R=/'/g,I=/"/g,j=/^(?:script|style|textarea|title)$/i,L=(t=>(e,...i)=>({_$litType$:t,strings:e,values:i}))(1),W=Symbol.for("lit-noChange"),F=Symbol.for("lit-nothing"),q=new WeakMap,Y=C.createTreeWalker(C,129);function K(t,e){if(!P(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==S?S.createHTML(e):e}const V=(t,e)=>{const i=t.length-1,s=[];let r,o=2===e?"<svg>":3===e?"<math>":"",a=O;for(let e=0;e<i;e++){const i=t[e];let n,c,d=-1,l=0;for(;l<i.length&&(a.lastIndex=l,c=a.exec(i),null!==c);)l=a.lastIndex,a===O?"!--"===c[1]?a=U:void 0!==c[1]?a=H:void 0!==c[2]?(j.test(c[2])&&(r=RegExp("</"+c[2],"g")),a=N):void 0!==c[3]&&(a=N):a===N?">"===c[0]?(a=r??O,d=-1):void 0===c[1]?d=-2:(d=a.lastIndex-c[2].length,n=c[1],a=void 0===c[3]?N:'"'===c[3]?I:R):a===I||a===R?a=N:a===U||a===H?a=O:(a=N,r=void 0);const h=a===N&&t[e+1].startsWith("/>")?" ":"";o+=a===O?i+M:d>=0?(s.push(n),i.slice(0,d)+A+i.slice(d)+E+h):i+E+(-2===d?e:h)}return[K(t,o+(t[i]||"<?>")+(2===e?"</svg>":3===e?"</math>":"")),s]};class J{constructor({strings:t,_$litType$:e},i){let s;this.parts=[];let r=0,o=0;const a=t.length-1,n=this.parts,[c,d]=V(t,e);if(this.el=J.createElement(c,i),Y.currentNode=this.el.content,2===e||3===e){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes)}for(;null!==(s=Y.nextNode())&&n.length<a;){if(1===s.nodeType){if(s.hasAttributes())for(const t of s.getAttributeNames())if(t.endsWith(A)){const e=d[o++],i=s.getAttribute(t).split(E),a=/([.?@])?(.*)/.exec(e);n.push({type:1,index:r,name:a[2],strings:i,ctor:"."===a[1]?tt:"?"===a[1]?et:"@"===a[1]?it:X}),s.removeAttribute(t)}else t.startsWith(E)&&(n.push({type:6,index:r}),s.removeAttribute(t));if(j.test(s.tagName)){const t=s.textContent.split(E),e=t.length-1;if(e>0){s.textContent=k?k.emptyScript:"";for(let i=0;i<e;i++)s.append(t[i],D()),Y.nextNode(),n.push({type:2,index:++r});s.append(t[e],D())}}}else if(8===s.nodeType)if(s.data===T)n.push({type:2,index:r});else{let t=-1;for(;-1!==(t=s.data.indexOf(E,t+1));)n.push({type:7,index:r}),t+=E.length-1}r++}}static createElement(t,e){const i=C.createElement("template");return i.innerHTML=t,i}}function Z(t,e,i=t,s){if(e===W)return e;let r=void 0!==s?i._$Co?.[s]:i._$Cl;const o=z(e)?void 0:e._$litDirective$;return r?.constructor!==o&&(r?._$AO?.(!1),void 0===o?r=void 0:(r=new o(t),r._$AT(t,i,s)),void 0!==s?(i._$Co??=[])[s]=r:i._$Cl=r),void 0!==r&&(e=Z(t,r._$AS(t,e.values),r,s)),e}class G{constructor(t,e){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=e}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:e},parts:i}=this._$AD,s=(t?.creationScope??C).importNode(e,!0);Y.currentNode=s;let r=Y.nextNode(),o=0,a=0,n=i[0];for(;void 0!==n;){if(o===n.index){let e;2===n.type?e=new Q(r,r.nextSibling,this,t):1===n.type?e=new n.ctor(r,n.name,n.strings,this,t):6===n.type&&(e=new st(r,this,t)),this._$AV.push(e),n=i[++a]}o!==n?.index&&(r=Y.nextNode(),o++)}return Y.currentNode=C,s}p(t){let e=0;for(const i of this._$AV)void 0!==i&&(void 0!==i.strings?(i._$AI(t,i,e),e+=i.strings.length-2):i._$AI(t[e])),e++}}class Q{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,e,i,s){this.type=2,this._$AH=F,this._$AN=void 0,this._$AA=t,this._$AB=e,this._$AM=i,this.options=s,this._$Cv=s?.isConnected??!0}get parentNode(){let t=this._$AA.parentNode;const e=this._$AM;return void 0!==e&&11===t?.nodeType&&(t=e.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,e=this){t=Z(this,t,e),z(t)?t===F||null==t||""===t?(this._$AH!==F&&this._$AR(),this._$AH=F):t!==this._$AH&&t!==W&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):(t=>P(t)||"function"==typeof t?.[Symbol.iterator])(t)?this.k(t):this._(t)}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t))}_(t){this._$AH!==F&&z(this._$AH)?this._$AA.nextSibling.data=t:this.T(C.createTextNode(t)),this._$AH=t}$(t){const{values:e,_$litType$:i}=t,s="number"==typeof i?this._$AC(t):(void 0===i.el&&(i.el=J.createElement(K(i.h,i.h[0]),this.options)),i);if(this._$AH?._$AD===s)this._$AH.p(e);else{const t=new G(s,this),i=t.u(this.options);t.p(e),this.T(i),this._$AH=t}}_$AC(t){let e=q.get(t.strings);return void 0===e&&q.set(t.strings,e=new J(t)),e}k(t){P(this._$AH)||(this._$AH=[],this._$AR());const e=this._$AH;let i,s=0;for(const r of t)s===e.length?e.push(i=new Q(this.O(D()),this.O(D()),this,this.options)):i=e[s],i._$AI(r),s++;s<e.length&&(this._$AR(i&&i._$AB.nextSibling,s),e.length=s)}_$AR(t=this._$AA.nextSibling,e){for(this._$AP?.(!1,!0,e);t!==this._$AB;){const e=w(t).nextSibling;w(t).remove(),t=e}}setConnected(t){void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t))}}class X{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,e,i,s,r){this.type=1,this._$AH=F,this._$AN=void 0,this.element=t,this.name=e,this._$AM=s,this.options=r,i.length>2||""!==i[0]||""!==i[1]?(this._$AH=Array(i.length-1).fill(new String),this.strings=i):this._$AH=F}_$AI(t,e=this,i,s){const r=this.strings;let o=!1;if(void 0===r)t=Z(this,t,e,0),o=!z(t)||t!==this._$AH&&t!==W,o&&(this._$AH=t);else{const s=t;let a,n;for(t=r[0],a=0;a<r.length-1;a++)n=Z(this,s[i+a],e,a),n===W&&(n=this._$AH[a]),o||=!z(n)||n!==this._$AH[a],n===F?t=F:t!==F&&(t+=(n??"")+r[a+1]),this._$AH[a]=n}o&&!s&&this.j(t)}j(t){t===F?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"")}}class tt extends X{constructor(){super(...arguments),this.type=3}j(t){this.element[this.name]=t===F?void 0:t}}class et extends X{constructor(){super(...arguments),this.type=4}j(t){this.element.toggleAttribute(this.name,!!t&&t!==F)}}class it extends X{constructor(t,e,i,s,r){super(t,e,i,s,r),this.type=5}_$AI(t,e=this){if((t=Z(this,t,e,0)??F)===W)return;const i=this._$AH,s=t===F&&i!==F||t.capture!==i.capture||t.once!==i.once||t.passive!==i.passive,r=t!==F&&(i===F||s);s&&this.element.removeEventListener(this.name,this,i),r&&this.element.addEventListener(this.name,this,t),this._$AH=t}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t)}}class st{constructor(t,e,i){this.element=t,this.type=6,this._$AN=void 0,this._$AM=e,this.options=i}get _$AU(){return this._$AM._$AU}_$AI(t){Z(this,t)}}const rt=$.litHtmlPolyfillSupport;rt?.(J,Q),($.litHtmlVersions??=[]).push("3.3.3");const ot=globalThis;class at extends x{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const e=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=((t,e,i)=>{const s=i?.renderBefore??e;let r=s._$litPart$;if(void 0===r){const t=i?.renderBefore??null;s._$litPart$=r=new Q(e.insertBefore(D(),t),t,void 0,i??{})}return r._$AI(t),r})(e,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return W}}at._$litElement$=!0,at.finalized=!0,ot.litElementHydrateSupport?.({LitElement:at});const nt=ot.litElementPolyfillSupport;nt?.({LitElement:at}),(ot.litElementVersions??=[]).push("4.2.2"),console.log("%c[schedule-ui] v1.3.0 loaded","color: #03a9f4; font-weight: bold; font-size: 14px;");const ct={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종료 시간",add:"시간 블록 추가하기",delete:"삭제",cancel:"취소",save:"저장",repeat:"반복",days:["월","화","수","목","금","토","일"],daysShort:["월","화","수","목","금","토","일"],everyday:"매일",empty:"설정된 스케쥴이 없습니다.",errorEntity:"스케쥴 엔티티를 설정해야 합니다.",scheduleManager:"스케쥴 관리",placeholder:"스마트 스케쥴 카드",previewSuffix:" (미리보기)",conflictWarning:"이 요일은 기존 블록과 겹칩니다",createRoutine:"새 스케쥴 만들기",routineName:"스케쥴 이름",routineNamePlaceholder:"예: 거실 전등 스케쥴",targetDevice:"대상 기기",create:"스케쥴 생성",creating:"생성 중...",createSuccess:"스케쥴이 생성되었습니다!",createFailed:"스케쥴 생성에 실패했습니다.",createDescription:"기기를 선택하면 스케쥴과 자동화가 자동으로 생성됩니다.",orSelectExisting:"또는 기존 스케쥴을 편집기에서 선택하세요.",goToCard:"카드 편집에서 새 스케쥴을 선택해주세요.",editorWizardTitle:"새 스케쥴 만들기 (권장)",editorWizardDesc:"자동화할 기기를 선택하면 스케쥴 제어 장치와 동작 브릿지가 즉시 생성되고 이 카드에 자동으로 연동됩니다.",editorTargetDevice:"제어할 대상 기기 선택",editorCreateSuccess:"생성 및 연결 성공!",editorErrorPrefix:"오류 발생: ",editorAdvanced:"기존 스케쥴 다시 불러오기 및 추가 설정",editorScheduleEntity:"스케쥴 기기 (직접 선택)",editorCardTitle:"카드 표출 제목 (선택사항)",cardName:"스케쥴 카드",cardDescription:"스케쥴 헬퍼의 시간 블록을 편집하고, 기기를 선택하면 스케쥴을 자동 생성합니다.",deleteEverydayConfirm:"이 타임블록은 매일(월~일) 등록되어 있습니다.\n삭제하시면 모든 요일에서 일괄 삭제됩니다. 계속하시겠습니까?",deleteOneConfirm:"선택하신 요일의 스케줄을 삭제하시겠습니까?",conflictAlert:"다음 요일에 이미 겹치는 블록이 있어 저장할 수 없습니다: ",unknownDevice:"알 수 없는 기기",routineSuffix:" 스케쥴",bridgeAliasPrefix:"스케쥴 브릿지: ",bridgeDescPattern:" 스케쥴에 따라 기기를 자동 제어합니다."},en:{addBlock:"Add New Block",startTime:"Start Time",endTime:"End Time",add:"Add Time Block",delete:"Delete",cancel:"Cancel",save:"Save",repeat:"Repeat",days:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],daysShort:["M","T","W","T","F","S","S"],everyday:"Daily",empty:"No schedules configured.",errorEntity:"You need to define a schedule entity.",scheduleManager:"Schedule Manager",placeholder:"Smart Schedule Card",previewSuffix:" (Preview)",conflictWarning:"This day conflicts with an existing block",createRoutine:"Create New Routine",routineName:"Routine Name",routineNamePlaceholder:"e.g. Living Room Light",targetDevice:"Target Device",create:"Create Routine",creating:"Creating...",createSuccess:"Routine created successfully!",createFailed:"Failed to create routine.",createDescription:"Select a device to auto-create a schedule and automation.",orSelectExisting:"Or select an existing schedule in the editor.",goToCard:"Please select the new schedule in card settings.",editorWizardTitle:"Create New Routine (Recommended)",editorWizardDesc:"Pick a device to auto-create a schedule helper and automation bridge linked to this card.",editorTargetDevice:"Target Device",editorCreateSuccess:"Created and linked successfully!",editorErrorPrefix:"Error: ",editorAdvanced:"Advanced Configuration",editorScheduleEntity:"Schedule Entity",editorCardTitle:"Card Title (Optional)",cardName:"Schedule Card",cardDescription:"Edit schedule helper time blocks, or pick a device to auto-create one.",deleteEverydayConfirm:"This block is registered for every day (Mon–Sun).\nDeleting will remove it from all days. Continue?",deleteOneConfirm:"Delete this block from the selected day?",conflictAlert:"Cannot save — the following day(s) already have overlapping blocks: ",unknownDevice:"Unknown device",routineSuffix:" Schedule",bridgeAliasPrefix:"Schedule bridge: ",bridgeDescPattern:" — automatically controls the target device per its schedule."}},dt={ko:{addTitle:"+ 시간 추가",start:"시작",pause:"일시정지",resume:"계속",stop:"취소",preset5m:"+5분",preset10m:"+10분",preset30m:"+30분",presetMinus5m:"-5분",presetMinus10m:"-10분",presetMinus30m:"-30분",setDuration:"시간 설정",idleMessage:"대기 중",pausedMessage:"일시정지됨",editorTitle:"타이머 UI 설정",editorEntity:"연동된 타이머 엔티티",editorWizardTitle:"새 타이머 & 자동화 마법사",editorWizardDesc:"기기를 선택하면 타이머 헬퍼와 자동화 브릿지가 즉시 생성됩니다.",editorTargetDevice:"대상 기기 선택 (켜고 끌 기기)",editorActionType:"종료 시 동작",editorActionOff:"장치 끄기",editorActionOn:"장치 켜기",editorActionToggle:"상태 반전",editorCreateStr:"타이머 자동 생성",hoursLabel:"시간",minutesLabel:"분",secondsLabel:"초",hoursStr:"시간",minutesStr:"분",secondsStr:"초",countdownMessage:"후에 기기가 종료됩니다.",bridgeDescription:"Timer UI 카드에서 자동으로 생성한 브릿지입니다.",errorPrefix:"생성 중 오류가 발생했습니다: ",timerSuffix:" 타이머",cardName:"타이머 카드",cardDescription:"타이머 헬퍼를 제어하고, 기기를 선택하면 자동화 브릿지를 자동 생성합니다.",defaultTitle:"타이머 설정",helperFailMsg:"(안내) 타이머 헬퍼 생성 실패. 해당 HA 버전에서는 플러그인이 헬퍼를 완전 자동 생성할 수 없습니다. 수동 구성 권장.",timerBridgeAliasPrefix:"타이머 브릿지: ",syncingMessage:"동기화 중입니다...",generatedTimerLabel:" (생성된 타이머)"},en:{addTitle:"+ Add Time",start:"Start",pause:"Pause",resume:"Resume",stop:"Cancel",preset5m:"+5m",preset10m:"+10m",preset30m:"+30m",presetMinus5m:"-5m",presetMinus10m:"-10m",presetMinus30m:"-30m",setDuration:"Set Duration",idleMessage:"Idle",pausedMessage:"Paused",editorTitle:"Timer UI Config",editorEntity:"Linked Timer Entity",editorWizardTitle:"New Timer Wizard",editorWizardDesc:"Select a target device to auto-create timer and automation.",editorTargetDevice:"Select Target Device",editorActionType:"Action on finish",editorActionOff:"Turn Off",editorActionOn:"Turn On",editorActionToggle:"Toggle",editorCreateStr:"Auto Create Timer",hoursLabel:"Hours",minutesLabel:"Minutes",secondsLabel:"Seconds",hoursStr:"h",minutesStr:"m",secondsStr:"s",countdownMessage:"until the device turns off.",bridgeDescription:"Bridge automatically created by Timer UI card.",errorPrefix:"Error while creating: ",timerSuffix:" Timer",cardName:"Timer Card",cardDescription:"Control timer helpers, or pick a device to auto-create an automation bridge.",defaultTitle:"Timer Settings",helperFailMsg:"(Notice) Timer helper auto-create failed. This HA version does not allow plugins to create helpers automatically — please configure manually.",timerBridgeAliasPrefix:"Timer bridge: ",syncingMessage:"Syncing...",generatedTimerLabel:" (generated)"}};function lt(){return("undefined"!=typeof navigator&&navigator.language||"en").startsWith("ko")?"ko":"en"}const ht=["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];class pt extends at{static{this.properties={_config:{state:!0},_hass:{state:!1},_scheduleData:{state:!0},_selectedDay:{state:!0},_showCreateWizard:{state:!0},_isCreating:{state:!0},_createResult:{state:!0},_addFormDays:{state:!0},_dragDay:{state:!0},_dragStartMin:{state:!0},_dragEndMin:{state:!0},_pendingBlock:{state:!0},_selectedBlockKey:{state:!0},_resizingBlock:{state:!0}}}constructor(){super(),this._scheduleData=null,this._selectedDay=0===(new Date).getDay()?6:(new Date).getDay()-1,this._showCreateWizard=!1,this._isCreating=!1,this._createResult=null,this._lang="en",this._isEditing=!1,this._dragDay=null,this._dragStartMin=null,this._dragEndMin=null,this._pendingBlock=null,this._addFormDays=[],this._selectedBlockKey=null,this._resizingBlock=null}setConfig(t){this._config=t,this._hass&&this._loadSchedule()}set hass(t){const e=this._hass;this._hass=t;let i=!e;if(t&&t.language){const e=t.language.startsWith("ko")?"ko":"en";this._lang!==e&&(this._lang=e,i=!0)}i&&this.requestUpdate(),!e&&t&&this._config&&this._loadSchedule()}_t(t){return ct[this._lang][t]||ct.en[t]}async _loadSchedule(){if(this._hass&&this._config.entity)try{const t=await this._hass.callWS({type:"schedule/list"}),e=this._config.entity,i=e.split(".")[1];let s=i;try{const t=await this._hass.callWS({type:"config/entity_registry/get",entity_id:e});t&&t.unique_id&&(s=t.unique_id,console.log("[schedule-ui] entity registry → unique_id:",s))}catch(t){console.warn("[schedule-ui] entity registry 조회 실패, slug 사용:",i,t)}let r=t.find(t=>t.id===s);if(r||(r=t.find(t=>t.id===i)),!r){const i=this._hass.states?.[e],s=i?.attributes?.friendly_name;s&&(r=t.find(t=>t.name===s))}console.log("[schedule-ui] loadSchedule - entity:",e,"storageId:",s,"matched:",r?r.id:"NONE"),!r&&t.length>0&&console.warn("[schedule-ui] 매칭 실패! available ids:",t.map(t=>`${t.id}(${t.name})`)),r&&(this._scheduleData=r)}catch(t){console.error("[schedule-ui] Failed to load schedules",t)}}async _updateSchedule(){if(this._hass&&this._scheduleData){this._isEditing=!0;try{const t=this._scheduleData.id,e={name:this._scheduleData.name};this._scheduleData.icon&&(e.icon=this._scheduleData.icon);for(const t of ht)e[t]=this._scheduleData[t]||[];console.log("[schedule-ui] updateSchedule - schedule_id:",t),console.log("[schedule-ui] updateSchedule - payload:",JSON.stringify(e,null,2));const i=await this._hass.callWS({type:"schedule/update",schedule_id:t,...e});console.log("[schedule-ui] updateSchedule - success:",i),await this._loadSchedule()}catch(t){console.error("[schedule-ui] updateSchedule FAILED:",t),console.error("[schedule-ui] error details:",JSON.stringify(t,null,2)),await this._loadSchedule()}finally{this._isEditing=!1}}}_getEverydayBlocks(t=this._scheduleData){if(!t)return[];return(t[ht[0]]||[]).filter(e=>ht.every(i=>(t[i]||[]).some(t=>t.from===e.from&&t.to===e.to)))}_deleteBlock(t,e){if(this._isEditing||!this._scheduleData||!this._config?.entity)return;const i=this._getEverydayBlocks(this._scheduleData).some(t=>t.from===e.from&&t.to===e.to),s=i?this._t("deleteEverydayConfirm"):this._t("deleteOneConfirm");if(!confirm(s))return;const r={...this._scheduleData};if(i)for(const t of ht){const i=r[t]||[];r[t]=i.filter(t=>!(t.from===e.from&&t.to===e.to))}else if(t){const i=r[t]||[];r[t]=i.filter(t=>!(t.from===e.from&&t.to===e.to))}this._scheduleData=r,this._updateSchedule()}_yToMinutes(t,e){const i=t.getBoundingClientRect(),s=Math.max(0,Math.min(1,(e-i.top)/i.height)),r=15*Math.round(1440*s/15);return Math.max(0,Math.min(1440,r))}_minutesToTimeStr(t){const e=Math.max(0,Math.min(1439,t)),i=Math.floor(e/60),s=e%60;return`${String(i).padStart(2,"0")}:${String(s).padStart(2,"0")}:00`}_onBarPointerDown(t,e){if(this._isEditing)return;if((t.composedPath?t.composedPath():[]).some(t=>t?.classList?.contains?.("editor-block")&&!t.classList.contains("pending")))return;this._selectedBlockKey=null;const i=t.currentTarget;try{i.setPointerCapture(t.pointerId)}catch(t){}const s=this._yToMinutes(i,t.clientY);this._dragDay=e,this._dragStartMin=s,this._dragEndMin=s,this._selectedDay=e}_selectBlock(t,e,i){t.stopPropagation();const s=`${e}-${i}`;this._selectedBlockKey=this._selectedBlockKey===s?null:s}_deleteSelectedBlock(t,e,i){t.stopPropagation(),this._selectedBlockKey=null,this._deleteBlock(e,i)}_onHandlePointerDown(t,e,i,s){if(t.stopPropagation(),!this._isEditing){try{t.currentTarget.setPointerCapture(t.pointerId)}catch(t){}this._resizingBlock={dayStr:e,blockIdx:i,edge:s}}}_onHandlePointerMove(t,e,i,s){const r=this._resizingBlock;if(!r||r.dayStr!==e||r.blockIdx!==i||r.edge!==s)return;const o=t.currentTarget.closest(".editor-column");if(!o)return;const a=this._scheduleData?.[e]||[],n=a[i];if(!n)return;const c=this._yToMinutes(o,t.clientY),d=this._timeToMinutes(n.from),l=this._timeToMinutes(n.to),h=a.filter((t,e)=>e!==i);let p=d,u=l;if("top"===s){const t=h.map(t=>this._timeToMinutes(t.to)).filter(t=>t<=l).reduce((t,e)=>Math.max(t,e),0);p=Math.max(t,Math.min(c,l-15))}else{const t=h.map(t=>this._timeToMinutes(t.from)).filter(t=>t>=d).reduce((t,e)=>Math.min(t,e),1440);u=Math.min(t,Math.max(c,d+15))}if(p===d&&u===l)return;const g=a.map((t,e)=>e===i?{from:this._minutesToTimeStr(p),to:this._minutesToTimeStr(u)}:t);this._scheduleData={...this._scheduleData,[e]:g}}_onHandlePointerUp(t,e,i,s){const r=this._resizingBlock;if(r&&r.dayStr===e&&r.blockIdx===i&&r.edge===s){try{t.currentTarget.releasePointerCapture(t.pointerId)}catch(t){}this._resizingBlock=null,this._updateSchedule()}}_onBarPointerMove(t,e){this._dragDay===e&&(this._dragEndMin=this._yToMinutes(t.currentTarget,t.clientY))}_onBarPointerUp(t,e){if(this._dragDay!==e)return;const i=t.currentTarget;try{i.releasePointerCapture(t.pointerId)}catch(t){}const s=Math.min(this._dragStartMin,this._dragEndMin),r=Math.max(this._dragStartMin,this._dragEndMin);this._dragDay=null,this._dragStartMin=null,this._dragEndMin=null,r-s<15||(this._overlapsExisting(e,s,r)?console.warn("[schedule-ui] 드래그한 시간대가 기존 블록과 겹쳐 무시됨"):(this._pendingBlock={startMin:s,endMin:r},this._addFormDays=[e]))}_overlapsExisting(t,e,i){if(!this._scheduleData)return!1;const s=ht[t];return(this._scheduleData[s]||[]).some(t=>{const s=this._timeToMinutes(t.from),r=this._timeToMinutes(t.to);return e<r&&i>s})}_currentDragOverlaps(t){if(this._dragDay!==t||null===this._dragStartMin)return!1;const e=Math.min(this._dragStartMin,this._dragEndMin),i=Math.max(this._dragStartMin,this._dragEndMin);return!(i-e<15)&&this._overlapsExisting(t,e,i)}_togglePendingDay(t){this._pendingBlock&&(this._addFormDays=this._addFormDays.includes(t)?this._addFormDays.filter(e=>e!==t):[...this._addFormDays,t])}_cancelPending(){this._pendingBlock=null,this._addFormDays=[]}async _savePending(){if(!this._pendingBlock||!this._scheduleData)return;if(0===this._addFormDays.length)return;const{startMin:t,endMin:e}=this._pendingBlock,i=this._addFormDays.filter(i=>this._overlapsExisting(i,t,e));if(i.length>0){const t=i.map(t=>this._t("daysShort")[t]).join(", ");return void alert(`${this._t("conflictAlert")}${t}`)}const s=this._minutesToTimeStr(t),r=this._minutesToTimeStr(e),o={...this._scheduleData};for(const t of this._addFormDays){const e=ht[t],i=o[e]?[...o[e]]:[];i.push({from:s,to:r}),o[e]=i}this._scheduleData=o,this._pendingBlock=null,this._addFormDays=[],this._updateSchedule()}_formatTime(t){if(!t)return"";let[e,i]=t.split(":"),s=new Date;return s.setHours(parseInt(e)),s.setMinutes(parseInt(i)),new Intl.DateTimeFormat(this._lang,{hour:"numeric",minute:"numeric",hour12:!0}).format(s)}_timeToMinutes(t){if(!t)return 0;const e=t.split(":");return 60*parseInt(e[0])+parseInt(e[1])}render(){if(!this._config)return L`<ha-card><div class="error">Not configured</div></ha-card>`;if(!this._hass)return L`
         <ha-card>
           <div class="card-header">
-            <div class="name">${this._config.title || this._t("scheduleManager")}</div>
+            <div class="name">${this._config.title||this._t("scheduleManager")}</div>
             <div class="header-right">
               <ha-icon icon="mdi:calendar-clock"></ha-icon>
             </div>
@@ -666,175 +13,114 @@ class HaCustomScheduleCard extends LitElement {
             </div>
           </div>
         </ha-card>
-      `;
-    }
-
-    let isDummy = false;
-    let renderData = this._scheduleData;
-
-    // 엔티티가 선택되지 않은 초기 배치 상태 → 카드 피커 피드백용 더미 데이터 노출
-    if (!this._config.entity) {
-      isDummy = true;
-      renderData = {
-        name: this._t("scheduleManager") + this._t("previewSuffix"),
-        icon: "mdi:calendar-star",
-        monday: [{from: "09:00:00", to: "18:00:00"}],
-        tuesday: [{from: "09:00:00", to: "18:00:00"}],
-        wednesday: [{from: "09:00:00", to: "18:00:00"}],
-        thursday: [{from: "09:00:00", to: "18:00:00"}],
-        friday: [{from: "09:00:00", to: "12:00:00"}, {from: "13:00:00", to: "18:00:00"}],
-        saturday: [{from: "07:00:00", to: "09:00:00"}, {from: "20:00:00", to: "23:00:00"}],
-        sunday: [{from: "10:00:00", to: "22:00:00"}]
-      };
-    }
-
-    const customTitle = this._config.title || (renderData ? renderData.name : this._t("scheduleManager"));
-    const isEveryday = this._selectedDay === EVERYDAY_INDEX;
-    const dayStr = isEveryday ? null : WEEKDAYS[this._selectedDay];
-    const blocks = renderData
-      ? (isEveryday ? this._getEverydayBlocks(renderData) : (renderData[dayStr] || []))
-      : [];
-
-    // 시작 시간 순으로 정렬
-    const sortedBlocks = [...blocks].sort((a, b) => a.from.localeCompare(b.from));
-
-    return html`
+      `;let t=this._scheduleData;this._config.entity||(t={name:this._t("scheduleManager")+this._t("previewSuffix"),icon:"mdi:calendar-star",monday:[{from:"09:00:00",to:"18:00:00"}],tuesday:[{from:"09:00:00",to:"18:00:00"}],wednesday:[{from:"09:00:00",to:"18:00:00"}],thursday:[{from:"09:00:00",to:"18:00:00"}],friday:[{from:"09:00:00",to:"12:00:00"},{from:"13:00:00",to:"18:00:00"}],saturday:[{from:"07:00:00",to:"09:00:00"},{from:"20:00:00",to:"23:00:00"}],sunday:[{from:"10:00:00",to:"22:00:00"}]});const e=this._config.title||(t?t.name:this._t("scheduleManager")),i=7===this._selectedDay,s=i?null:ht[this._selectedDay],r=[...t?i?this._getEverydayBlocks(t):t[s]||[]:[]].sort((t,e)=>t.from.localeCompare(e.from));return L`
       <ha-card>
 
         <div class="card-header">
-          <div class="name">${customTitle}</div>
+          <div class="name">${e}</div>
           <div class="header-right">
-            <ha-icon icon="${renderData?.icon || 'mdi:calendar-clock'}"></ha-icon>
+            <ha-icon icon="${t?.icon||"mdi:calendar-clock"}"></ha-icon>
           </div>
         </div>
 
         <div class="card-content">
             <!-- 단일 컬럼 데이 에디터 -->
-            ${(() => {
-              const MINUTES_IN_DAY = 1440;
-              const selDayStr = WEEKDAYS[this._selectedDay] || WEEKDAYS[0];
-              const selDayBlocks = renderData ? (renderData[selDayStr] || []) : [];
-              const isDragging = this._dragDay === this._selectedDay && this._dragStartMin !== null;
-              const dragStart = isDragging ? Math.min(this._dragStartMin, this._dragEndMin) : 0;
-              const dragEnd = isDragging ? Math.max(this._dragStartMin, this._dragEndMin) : 0;
-              const now = new Date();
-              const todayIdx = (now.getDay() + 6) % 7;
-              const showNow = todayIdx === this._selectedDay;
-              const nowPos = showNow ? ((now.getHours() * 60 + now.getMinutes()) / MINUTES_IN_DAY) * 100 : 0;
-              return html`
+            ${(()=>{const e=1440,i=ht[this._selectedDay]||ht[0],s=t&&t[i]||[],r=this._dragDay===this._selectedDay&&null!==this._dragStartMin,o=r?Math.min(this._dragStartMin,this._dragEndMin):0,a=r?Math.max(this._dragStartMin,this._dragEndMin):0,n=new Date,c=(n.getDay()+6)%7===this._selectedDay,d=c?(60*n.getHours()+n.getMinutes())/e*100:0;return L`
                 <div class="day-editor">
                   <div class="day-editor-grid">
                     <div class="hour-labels-col">
-                      ${Array.from({length: 25}, (_, h) => html`<span>${h}</span>`)}
+                      ${Array.from({length:25},(t,e)=>L`<span>${e}</span>`)}
                     </div>
                     <div class="editor-column"
-                         @pointerdown="${(e) => this._onBarPointerDown(e, this._selectedDay)}"
-                         @pointermove="${(e) => this._onBarPointerMove(e, this._selectedDay)}"
-                         @pointerup="${(e) => this._onBarPointerUp(e, this._selectedDay)}"
-                         @pointercancel="${(e) => this._onBarPointerUp(e, this._selectedDay)}">
-                      ${Array.from({length: 24}, (_, h) => html`
-                        <div class="hour-gridline" style="top: ${(h / 24) * 100}%;"></div>
+                         @pointerdown="${t=>this._onBarPointerDown(t,this._selectedDay)}"
+                         @pointermove="${t=>this._onBarPointerMove(t,this._selectedDay)}"
+                         @pointerup="${t=>this._onBarPointerUp(t,this._selectedDay)}"
+                         @pointercancel="${t=>this._onBarPointerUp(t,this._selectedDay)}">
+                      ${Array.from({length:24},(t,e)=>L`
+                        <div class="hour-gridline" style="top: ${e/24*100}%;"></div>
                       `)}
-                      ${selDayBlocks.map((block, blockIdx) => {
-                        const startMin = this._timeToMinutes(block.from);
-                        const endMin = this._timeToMinutes(block.to);
-                        const top = (startMin / MINUTES_IN_DAY) * 100;
-                        const height = ((endMin - startMin) / MINUTES_IN_DAY) * 100;
-                        const blockKey = `${selDayStr}-${blockIdx}`;
-                        const isSelectedBlock = this._selectedBlockKey === blockKey;
-                        return html`
-                          <div class="editor-block ${isSelectedBlock ? 'selected' : ''}"
-                               style="top: ${top}%; height: ${Math.max(height, 0.5)}%;"
-                               title="${this._formatTime(block.from)} ~ ${this._formatTime(block.to)}"
-                               @click="${(e) => this._selectBlock(e, selDayStr, blockIdx)}"
-                               @pointerdown="${(e) => e.stopPropagation()}">
-                            ${isSelectedBlock ? html`
-                              <span class="block-time-pill">${block.from.slice(0,5)}~${block.to.slice(0,5)}</span>
+                      ${s.map((t,s)=>{const r=this._timeToMinutes(t.from),o=this._timeToMinutes(t.to),a=r/e*100,n=(o-r)/e*100,c=`${i}-${s}`,d=this._selectedBlockKey===c;return L`
+                          <div class="editor-block ${d?"selected":""}"
+                               style="top: ${a}%; height: ${Math.max(n,.5)}%;"
+                               title="${this._formatTime(t.from)} ~ ${this._formatTime(t.to)}"
+                               @click="${t=>this._selectBlock(t,i,s)}"
+                               @pointerdown="${t=>t.stopPropagation()}">
+                            ${d?L`
+                              <span class="block-time-pill">${t.from.slice(0,5)}~${t.to.slice(0,5)}</span>
                               <span class="block-handle handle-top"
-                                    @pointerdown="${(e) => this._onHandlePointerDown(e, selDayStr, blockIdx, 'top')}"
-                                    @pointermove="${(e) => this._onHandlePointerMove(e, selDayStr, blockIdx, 'top')}"
-                                    @pointerup="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'top')}"
-                                    @pointercancel="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'top')}"></span>
+                                    @pointerdown="${t=>this._onHandlePointerDown(t,i,s,"top")}"
+                                    @pointermove="${t=>this._onHandlePointerMove(t,i,s,"top")}"
+                                    @pointerup="${t=>this._onHandlePointerUp(t,i,s,"top")}"
+                                    @pointercancel="${t=>this._onHandlePointerUp(t,i,s,"top")}"></span>
                               <span class="block-handle handle-bottom"
-                                    @pointerdown="${(e) => this._onHandlePointerDown(e, selDayStr, blockIdx, 'bottom')}"
-                                    @pointermove="${(e) => this._onHandlePointerMove(e, selDayStr, blockIdx, 'bottom')}"
-                                    @pointerup="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'bottom')}"
-                                    @pointercancel="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'bottom')}"></span>
-                              <button class="block-delete" @click="${(e) => this._deleteSelectedBlock(e, selDayStr, block)}" title="${this._t("delete")}">
+                                    @pointerdown="${t=>this._onHandlePointerDown(t,i,s,"bottom")}"
+                                    @pointermove="${t=>this._onHandlePointerMove(t,i,s,"bottom")}"
+                                    @pointerup="${t=>this._onHandlePointerUp(t,i,s,"bottom")}"
+                                    @pointercancel="${t=>this._onHandlePointerUp(t,i,s,"bottom")}"></span>
+                              <button class="block-delete" @click="${e=>this._deleteSelectedBlock(e,i,t)}" title="${this._t("delete")}">
                                 <span>−</span>
                               </button>
-                            ` : ''}
+                            `:""}
                           </div>
-                        `;
-                      })}
-                      ${this._pendingBlock ? html`
+                        `})}
+                      ${this._pendingBlock?L`
                         <div class="editor-block pending"
-                             style="top: ${(this._pendingBlock.startMin / MINUTES_IN_DAY) * 100}%; height: ${Math.max(((this._pendingBlock.endMin - this._pendingBlock.startMin) / MINUTES_IN_DAY) * 100, 0.5)}%;">
+                             style="top: ${this._pendingBlock.startMin/e*100}%; height: ${Math.max((this._pendingBlock.endMin-this._pendingBlock.startMin)/e*100,.5)}%;">
                           <span class="block-time-label">${this._minutesToTimeStr(this._pendingBlock.startMin).slice(0,5)} ~ ${this._minutesToTimeStr(this._pendingBlock.endMin).slice(0,5)}</span>
                         </div>
-                      ` : ''}
-                      ${isDragging ? (() => {
-                        const overlaps = this._currentDragOverlaps(this._selectedDay);
-                        return html`
-                          <div class="editor-block pending dragging ${overlaps ? 'conflict' : ''}"
-                               style="top: ${(dragStart / MINUTES_IN_DAY) * 100}%; height: ${Math.max(((dragEnd - dragStart) / MINUTES_IN_DAY) * 100, 0.5)}%;">
-                            <span class="block-time-label">${overlaps ? '⚠ ' : ''}${this._minutesToTimeStr(dragStart).slice(0,5)} ~ ${this._minutesToTimeStr(dragEnd).slice(0,5)}</span>
+                      `:""}
+                      ${r?(()=>{const t=this._currentDragOverlaps(this._selectedDay);return L`
+                          <div class="editor-block pending dragging ${t?"conflict":""}"
+                               style="top: ${o/e*100}%; height: ${Math.max((a-o)/e*100,.5)}%;">
+                            <span class="block-time-label">${t?"⚠ ":""}${this._minutesToTimeStr(o).slice(0,5)} ~ ${this._minutesToTimeStr(a).slice(0,5)}</span>
                           </div>
-                        `;
-                      })() : ''}
-                      ${showNow ? html`<div class="now-dot" style="top: ${nowPos}%;"></div>` : ''}
+                        `})():""}
+                      ${c?L`<div class="now-dot" style="top: ${d}%;"></div>`:""}
                     </div>
                   </div>
                 </div>
 
-                ${this._pendingBlock ? html`
+                ${this._pendingBlock?L`
                   <div class="repeat-section">
                     <div class="repeat-label">${this._t("repeat")}</div>
                     <div class="repeat-days">
-                      ${WEEKDAYS.map((_, i) => {
-                        const conflicts = this._overlapsExisting(i, this._pendingBlock.startMin, this._pendingBlock.endMin);
-                        const selected = this._addFormDays.includes(i);
-                        return html`
-                          <div class="repeat-pill ${selected ? 'selected' : ''} ${conflicts ? 'conflict' : ''}"
-                               title="${conflicts ? this._t("conflictWarning") : ''}"
-                               @click="${() => { if (!conflicts) this._togglePendingDay(i); }}">
-                            ${this._t("daysShort")[i]}
+                      ${ht.map((t,e)=>{const i=this._overlapsExisting(e,this._pendingBlock.startMin,this._pendingBlock.endMin),s=this._addFormDays.includes(e);return L`
+                          <div class="repeat-pill ${s?"selected":""} ${i?"conflict":""}"
+                               title="${i?this._t("conflictWarning"):""}"
+                               @click="${()=>{i||this._togglePendingDay(e)}}">
+                            ${this._t("daysShort")[e]}
                           </div>
-                        `;
-                      })}
+                        `})}
                     </div>
                     <div class="repeat-actions">
                       <button class="ghost-btn" @click="${this._cancelPending}">${this._t("cancel")}</button>
-                      <button class="primary-btn" @click="${this._savePending}" ?disabled=${this._addFormDays.length === 0 || this._isEditing}>${this._t("save")}</button>
+                      <button class="primary-btn" @click="${this._savePending}" ?disabled=${0===this._addFormDays.length||this._isEditing}>${this._t("save")}</button>
                     </div>
                   </div>
-                ` : html`
+                `:L`
                   <div class="day-switcher">
-                    ${WEEKDAYS.map((_, i) => html`
-                      <div class="day-pill ${this._selectedDay === i ? 'selected' : ''}"
-                           @click="${() => { this._selectedDay = i; }}">
-                        ${this._t("daysShort")[i]}
+                    ${ht.map((t,e)=>L`
+                      <div class="day-pill ${this._selectedDay===e?"selected":""}"
+                           @click="${()=>{this._selectedDay=e}}">
+                        ${this._t("daysShort")[e]}
                       </div>
                     `)}
                   </div>
                 `}
-              `;
-            })()}
+              `})()}
 
             <div class="blocks-container">
-              ${sortedBlocks.length === 0 ? html`
+              ${0===r.length?L`
                 <div class="empty-state">${this._t("empty")}</div>
-              ` : sortedBlocks.map((block) => {
-                const isEverydayBlock = this._getEverydayBlocks(renderData).some(b => b.from === block.from && b.to === block.to);
-                return html`
+              `:r.map(e=>{const r=this._getEverydayBlocks(t).some(t=>t.from===e.from&&t.to===e.to);return L`
                 <div class="time-block">
                   <div class="time-text">
-                    ${isEverydayBlock ? html`<span class="daily-badge" style="background:var(--custom-primary); color:var(--card-background-color); font-size:0.75rem; font-weight:600; padding:2px 6px; border-radius:4px; margin-right:8px;">${this._t("everyday")}</span>` : ''}
-                    <span>${this._formatTime(block.from)}</span>
+                    ${r?L`<span class="daily-badge" style="background:var(--custom-primary); color:var(--card-background-color); font-size:0.75rem; font-weight:600; padding:2px 6px; border-radius:4px; margin-right:8px;">${this._t("everyday")}</span>`:""}
+                    <span>${this._formatTime(e.from)}</span>
                     <span class="divider">~</span>
-                    <span>${this._formatTime(block.to)}</span>
+                    <span>${this._formatTime(e.to)}</span>
                   </div>
-                  <button class="icon-btn delete-btn" @click="${() => this._deleteBlock(isEveryday ? null : dayStr, block)}" ?disabled=${this._isEditing}>
+                  <button class="icon-btn delete-btn" @click="${()=>this._deleteBlock(i?null:s,e)}" ?disabled=${this._isEditing}>
                     <ha-icon icon="mdi:trash-can-outline"></ha-icon>
                   </button>
                 </div>
@@ -843,10 +129,7 @@ class HaCustomScheduleCard extends LitElement {
 
         </div>
       </ha-card>
-    `;
-  }
-
-  static styles = css`
+    `}static{this.styles=o`
     :host {
       display: block;
       --custom-primary: var(--primary-color, #03a9f4);
@@ -1557,123 +840,7 @@ class HaCustomScheduleCard extends LitElement {
     .primary-btn:active {
       transform: scale(0.98);
     }
-  `;
-
-  // HA 커스텀 카드 편집기 인스턴스 연동
-  static getConfigElement() {
-    return document.createElement("ha-custom-schedule-card-editor");
-  }
-
-  // 카드 피커에서 처음 배치될 때의 기본값 (type은 HA가 자동 추가하므로 포함 금지)
-  static getStubConfig() {
-    return {};
-  }
-
-  // masonry 뷰를 위한 기본 예상 카드 높이 (1단위 = 50px)
-  getCardSize() {
-    return this._config?.entity ? 5 : 7;
-  }
-
-  // sections 뷰를 위한 그리드 옵션 (세로 길이를 내용에 맞추기 위해 rows는 지정하지 않음)
-  getGridOptions() {
-    return {
-      columns: 12,
-      min_rows: 3,
-    };
-  }
-}
-
-// ---------------------------------------------------------
-// Visual Editor 구현 영역
-// ---------------------------------------------------------
-class HaCustomScheduleCardEditor extends LitElement {
-  static properties = {
-    hass: {},
-    _config: {},
-    _isCreating: { type: Boolean },
-    _createResult: { type: Object },
-  };
-
-  setConfig(config) {
-    this._config = config;
-  }
-
-  configChanged(newConfig) {
-    const event = new Event("config-changed", { bubbles: true, composed: true });
-    event.detail = { config: newConfig };
-    this.dispatchEvent(event);
-  }
-
-  async _onAutoCreateDevicePicker(ev) {
-    const targetEntityId = ev.detail.value;
-    if (this._isCreating || !this.hass || !targetEntityId) return;
-
-    // 기기 이름 기반으로 스케쥴 이름 자동 생성
-    const entityObj = this.hass.states[targetEntityId];
-    const friendlyName = entityObj?.attributes?.friendly_name || targetEntityId.split('.')[1] || this._t("unknownDevice");
-    const routineName = `${friendlyName}${this._t("routineSuffix")}`;
-
-    this._isCreating = true;
-    this._createResult = null;
-    this.requestUpdate();
-
-    try {
-      console.log("[schedule-ui] Editor Auto createRoutine - name:", routineName, "target:", targetEntityId);
-      
-      const schedulePayload = {
-        type: "schedule/create",
-        name: routineName,
-        icon: "mdi:calendar-clock",
-      };
-
-
-      const scheduleResult = await this.hass.callWS(schedulePayload);
-      console.log("[schedule-ui] schedule/create SUCCESS:", scheduleResult);
-
-      const scheduleId = scheduleResult.id;
-      const scheduleEntityId = `schedule.${scheduleId}`;
-
-      const automationId = `bridge_${scheduleId}`;
-      const automationPayload = {
-        alias: `${this._t("bridgeAliasPrefix")}${routineName}`,
-        description: `[schedule-ui] ${routineName}${this._t("bridgeDescPattern")}`,
-        use_blueprint: {
-          path: "jewon-oh/schedule-bridge-blueprint.yaml",
-          input: {
-            schedule_helper: scheduleEntityId,
-            target_device: targetEntityId
-          }
-        }
-      };
-
-      await this.hass.callApi("POST", `config/automation/config/${automationId}`, automationPayload);
-      console.log("[schedule-ui] automation create SUCCESS:", automationId);
-
-      this._createResult = { success: true, entityId: scheduleEntityId };
-
-      // 자동 생성 완료 시 곧바로 config의 entity 속성을 교체
-      this.configChanged({ ...this._config, entity: scheduleEntityId });
-
-    } catch (e) {
-      console.error("[schedule-ui] createRoutine FAILED:", e);
-      this._createResult = { success: false, message: e.message || JSON.stringify(e) };
-    } finally {
-      this._isCreating = false;
-      this.requestUpdate();
-    }
-  }
-
-  _t(key) {
-    const lang = this.hass?.language?.startsWith('ko') ? 'ko' : 'en';
-    return LOCALES[lang][key] || LOCALES["en"][key];
-  }
-
-  render() {
-    if (!this.hass || !this._config) {
-      return html``;
-    }
-
-    return html`
+  `}static getConfigElement(){return document.createElement("ha-custom-schedule-card-editor")}static getStubConfig(){return{}}getCardSize(){return this._config?.entity?5:7}getGridOptions(){return{columns:12,min_rows:3}}}class ut extends at{static{this.properties={hass:{},_config:{},_isCreating:{type:Boolean},_createResult:{type:Object}}}setConfig(t){this._config=t}configChanged(t){const e=new Event("config-changed",{bubbles:!0,composed:!0});e.detail={config:t},this.dispatchEvent(e)}async _onAutoCreateDevicePicker(t){const e=t.detail.value;if(this._isCreating||!this.hass||!e)return;const i=this.hass.states[e],s=`${i?.attributes?.friendly_name||e.split(".")[1]||this._t("unknownDevice")}${this._t("routineSuffix")}`;this._isCreating=!0,this._createResult=null,this.requestUpdate();try{console.log("[schedule-ui] Editor Auto createRoutine - name:",s,"target:",e);const t={type:"schedule/create",name:s,icon:"mdi:calendar-clock"},i=await this.hass.callWS(t);console.log("[schedule-ui] schedule/create SUCCESS:",i);const r=i.id,o=`schedule.${r}`,a=`bridge_${r}`,n={alias:`${this._t("bridgeAliasPrefix")}${s}`,description:`[schedule-ui] ${s}${this._t("bridgeDescPattern")}`,use_blueprint:{path:"jewon-oh/schedule-bridge-blueprint.yaml",input:{schedule_helper:o,target_device:e}}};await this.hass.callApi("POST",`config/automation/config/${a}`,n),console.log("[schedule-ui] automation create SUCCESS:",a),this._createResult={success:!0,entityId:o},this.configChanged({...this._config,entity:o})}catch(t){console.error("[schedule-ui] createRoutine FAILED:",t),this._createResult={success:!1,message:t.message||JSON.stringify(t)}}finally{this._isCreating=!1,this.requestUpdate()}}_t(t){const e=this.hass?.language?.startsWith("ko")?"ko":"en";return ct[e][t]||ct.en[t]}render(){return this.hass&&this._config?L`
       <div class="card-config">
 
         <div class="wizard-section">
@@ -1685,33 +852,33 @@ class HaCustomScheduleCardEditor extends LitElement {
             ${this._t("editorWizardDesc")}
           </p>
 
-          ${this._isCreating ? html`
+          ${this._isCreating?L`
             <div style="text-align: center; padding: 20px; color: var(--primary-color);">
               <ha-icon icon="mdi:loading" class="spin"></ha-icon>
               <span style="margin-left: 8px;">${this._t("creating")}</span>
             </div>
-          ` : html`
+          `:L`
             <ha-selector
               .hass=${this.hass}
-              .selector=${{ entity: { domain: ["switch", "light", "fan", "climate", "cover"] } }}
+              .selector=${{entity:{domain:["switch","light","fan","climate","cover"]}}}
               .value=${""}
-              .required=${false}
+              .required=${!1}
               .label=${this._t("editorTargetDevice")}
               @value-changed=${this._onAutoCreateDevicePicker}
             ></ha-selector>
           `}
 
-          ${this._createResult?.success ? html`
+          ${this._createResult?.success?L`
             <div style="margin-top: 12px; color: var(--success-color, #4caf50); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
               <ha-icon icon="mdi:check-circle" style="--mdc-icon-size: 18px;"></ha-icon>
               <span>${this._createResult.entityId} ${this._t("editorCreateSuccess")}</span>
             </div>
-          ` : ''}
-          ${this._createResult && !this._createResult.success ? html`
+          `:""}
+          ${this._createResult&&!this._createResult.success?L`
             <div style="margin-top: 12px; color: var(--error-color, #f44336); font-size: 0.9rem;">
               ${this._t("editorErrorPrefix")}${this._createResult.message}
             </div>
-          ` : ''}
+          `:""}
         </div>
 
         <div style="height: 1px; background: var(--divider-color, rgba(100,100,100,0.2)); margin: 24px 0;"></div>
@@ -1722,9 +889,9 @@ class HaCustomScheduleCardEditor extends LitElement {
 
         <ha-selector
           .hass=${this.hass}
-          .selector=${{ entity: { domain: "schedule" } }}
-          .value=${this._config.entity || ""}
-          .required=${false}
+          .selector=${{entity:{domain:"schedule"}}}
+          .value=${this._config.entity||""}
+          .required=${!1}
           .label=${this._t("editorScheduleEntity")}
           @value-changed=${this._entityChanged}
         ></ha-selector>
@@ -1733,43 +900,12 @@ class HaCustomScheduleCardEditor extends LitElement {
 
         <ha-textfield
           label="${this._t("editorCardTitle")}"
-          .value=${this._config.title || ""}
+          .value=${this._config.title||""}
           @input=${this._titleChanged}
           style="width: 100%;"
         ></ha-textfield>
       </div>
-    `;
-  }
-
-  _entityChanged(ev) {
-    if (!this._config || !this.hass) return;
-    const value = ev.detail.value;
-    if (this._config.entity === value) return;
-    
-    this.configChanged({
-      ...this._config,
-      entity: value,
-    });
-  }
-
-  _titleChanged(ev) {
-    if (!this._config || !this.hass) return;
-    const value = ev.target.value;
-    if (this._config.title === value) return;
-    
-    if (value === "") {
-      const tmpConfig = { ...this._config };
-      delete tmpConfig.title;
-      this.configChanged(tmpConfig);
-    } else {
-      this.configChanged({
-        ...this._config,
-        title: value,
-      });
-    }
-  }
-
-  static styles = css`
+    `:L``}_entityChanged(t){if(!this._config||!this.hass)return;const e=t.detail.value;this._config.entity!==e&&this.configChanged({...this._config,entity:e})}_titleChanged(t){if(!this._config||!this.hass)return;const e=t.target.value;if(this._config.title!==e)if(""===e){const t={...this._config};delete t.title,this.configChanged(t)}else this.configChanged({...this._config,title:e})}static{this.styles=o`
     .card-config {
       display: flex;
       flex-direction: column;
@@ -1785,304 +921,98 @@ class HaCustomScheduleCardEditor extends LitElement {
     @keyframes spin {
       100% { transform: rotate(360deg); }
     }
-  `;
-}
-
-customElements.define("ha-custom-schedule-card-editor", HaCustomScheduleCardEditor);
-customElements.define("ha-custom-schedule-card", HaCustomScheduleCard);
-
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "ha-custom-schedule-card",
-  name: LOCALES[detectLang()].cardName,
-  preview: true,
-  description: LOCALES[detectLang()].cardDescription,
-  documentationURL: "https://github.com/jewon-oh/schedule-ui",
-});
-
-
-
-// ==========================================
-// Main Card
-// ==========================================
-class HaCustomTimerCard extends LitElement {
-  static properties = {
-    hass: { type: Object },
-    _config: { state: true },
-    _now: { state: true },
-    _inputHours: { state: true },
-    _inputMinutes: { state: true },
-    _inputSeconds: { state: true }
-  };
-
-  constructor() {
-    super();
-    this._now = Date.now();
-    this._inputHours = 0;
-    this._inputMinutes = 30;
-    this._inputSeconds = 0;
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    this._timerInterval = setInterval(() => {
-      this._now = Date.now();
-    }, 1000);
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    if (this._timerInterval) {
-      clearInterval(this._timerInterval);
-    }
-  }
-
-  static getConfigElement() {
-    return document.createElement("ha-custom-timer-card-editor");
-  }
-
-  static getStubConfig() {
-    return {
-      type: "custom:ha-custom-timer-card"
-    };
-  }
-
-  setConfig(config) {
-    if (!config) throw new Error("Invalid configuration");
-    this._config = config;
-  }
-
-  get _lang() {
-    return this.hass?.language && this.hass.language.includes('ko') ? 'ko' : 'en';
-  }
-
-  _t(key) {
-    return TIMER_LOCALES[this._lang]?.[key] ?? TIMER_LOCALES.en[key];
-  }
-
-  // Parses "HH:MM:SS" into total seconds
-  _parseDurationToSeconds(durationStr) {
-    if (!durationStr) return 0;
-    // Format could be "0:30:00" or "00:30:00"
-    const parts = durationStr.split(':').map(Number);
-    if (parts.length === 3) {
-      return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
-    }
-    return 0;
-  }
-
-  _formatSeconds(sec) {
-    if (sec <= 0) return "00:00:00";
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    const s = Math.floor(sec % 60);
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  }
-
-  _callService(service, data = {}) {
-    if (!this._config.entity) return;
-    this.hass.callService("timer", service, { entity_id: this._config.entity, ...data });
-  }
-
-  _startTimerCustom() {
-    const totalSec = (this._inputHours * 3600) + (this._inputMinutes * 60) + this._inputSeconds;
-    if (totalSec <= 0) return;
-    const durationStr = this._formatSeconds(totalSec);
-    this._callService("start", { duration: durationStr });
-  }
-
-  _startTimerPreset(minutes) {
-    this._callService("start", { duration: this._formatSeconds(minutes * 60) });
-  }
-
-  _addTime(minutes) {
-    let totalMinutes = (this._inputHours * 60) + this._inputMinutes + minutes;
-    if (totalMinutes < 0) totalMinutes = 0;
-
-    this._inputHours = Math.floor(totalMinutes / 60);
-    this._inputMinutes = totalMinutes % 60;
-    
-    // 최대 시간 초과 방지
-    if (this._inputHours > 99) {
-       this._inputHours = 99;
-       this._inputMinutes = 59;
-    }
-    this.requestUpdate();
-  }
-
-  // 시간 값 증감 핸들러
-  _adjustTime(field, delta) {
-    const limits = { hours: { min: 0, max: 23 }, minutes: { min: 0, max: 59 }, seconds: { min: 0, max: 59 } };
-    const fieldMap = { hours: '_inputHours', minutes: '_inputMinutes', seconds: '_inputSeconds' };
-    const propName = fieldMap[field];
-    const limit = limits[field];
-    let val = (this[propName] || 0) + delta;
-    if (val < limit.min) val = limit.max;
-    if (val > limit.max) val = limit.min;
-    this[propName] = val;
-  }
-
-  // 숫자 직접 입력 핸들러
-  _onSpinInput(field, ev) {
-    const limits = { hours: { min: 0, max: 23 }, minutes: { min: 0, max: 59 }, seconds: { min: 0, max: 59 } };
-    const fieldMap = { hours: '_inputHours', minutes: '_inputMinutes', seconds: '_inputSeconds' };
-    const limit = limits[field];
-    let val = parseInt(ev.target.value) || 0;
-    if (val < limit.min) val = limit.min;
-    if (val > limit.max) val = limit.max;
-    this[fieldMap[field]] = val;
-  }
-
-  render() {
-    if (!this._config) return html`<ha-card><div class="error">Not configured</div></ha-card>`;
-
-    const isDummy = !this._config.entity;
-    let state = "idle";
-    let remainingSec = 0;
-    let totalDurationSec = 3600;
-    let customTitle = this._config.title || this._t("defaultTitle");
-
-    if (!isDummy && this.hass && this.hass.states[this._config.entity]) {
-      const stateObj = this.hass.states[this._config.entity];
-      state = stateObj.state;
-      customTitle = this._config.title || stateObj.attributes.friendly_name || this._config.entity;
-      totalDurationSec = this._parseDurationToSeconds(stateObj.attributes.duration) || 3600;
-
-      if (state === "active" && stateObj.attributes.finishes_at) {
-        let calcSec = Math.floor((new Date(stateObj.attributes.finishes_at).getTime() - this._now) / 1000);
-        
-        // 동적 오차 보정: 클라이언트 시간이 느려 calcSec가 기준시간을 초과하면 오차(offset)를 고정 저장
-        if (this._timeOffset === undefined || this._lastTimerState !== "active") {
-          this._timeOffset = Math.max(0, calcSec - totalDurationSec);
-        }
-        
-        // 오차를 빼서 0까지 정확히 떨어지도록 맞춤
-        remainingSec = Math.max(0, calcSec - (this._timeOffset || 0));
-        remainingSec = Math.min(totalDurationSec, remainingSec);
-      } else if (state === "paused" && stateObj.attributes.remaining) {
-        remainingSec = this._parseDurationToSeconds(stateObj.attributes.remaining);
-        this._timeOffset = undefined;
-      } else if (state === "idle") {
-        remainingSec = 0;
-        this._timeOffset = undefined;
-      }
-      this._lastTimerState = state;
-    } else if (isDummy) {
-      state = "idle";
-      this._inputHours = 0;
-      this._inputMinutes = 30;
-    }
-
-    const progressPercent = totalDurationSec > 0
-      ? Math.max(0, Math.min(100, (remainingSec / totalDurationSec) * 100))
-      : 0;
-
-    const h = Math.floor(remainingSec / 3600);
-    const m = Math.floor((remainingSec % 3600) / 60);
-    const s = Math.floor(remainingSec % 60);
-
-    return html`
+  `}}customElements.define("ha-custom-schedule-card-editor",ut),customElements.define("ha-custom-schedule-card",pt),window.customCards=window.customCards||[],window.customCards.push({type:"ha-custom-schedule-card",name:ct[lt()].cardName,preview:!0,description:ct[lt()].cardDescription,documentationURL:"https://github.com/jewon-oh/schedule-ui"});class gt extends at{static{this.properties={hass:{type:Object},_config:{state:!0},_now:{state:!0},_inputHours:{state:!0},_inputMinutes:{state:!0},_inputSeconds:{state:!0}}}constructor(){super(),this._now=Date.now(),this._inputHours=0,this._inputMinutes=30,this._inputSeconds=0}connectedCallback(){super.connectedCallback(),this._timerInterval=setInterval(()=>{this._now=Date.now()},1e3)}disconnectedCallback(){super.disconnectedCallback(),this._timerInterval&&clearInterval(this._timerInterval)}static getConfigElement(){return document.createElement("ha-custom-timer-card-editor")}static getStubConfig(){return{type:"custom:ha-custom-timer-card"}}setConfig(t){if(!t)throw new Error("Invalid configuration");this._config=t}get _lang(){return this.hass?.language&&this.hass.language.includes("ko")?"ko":"en"}_t(t){return dt[this._lang]?.[t]??dt.en[t]}_parseDurationToSeconds(t){if(!t)return 0;const e=t.split(":").map(Number);return 3===e.length?3600*e[0]+60*e[1]+e[2]:0}_formatSeconds(t){if(t<=0)return"00:00:00";const e=Math.floor(t/3600),i=Math.floor(t%3600/60),s=Math.floor(t%60);return`${e.toString().padStart(2,"0")}:${i.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`}_callService(t,e={}){this._config.entity&&this.hass.callService("timer",t,{entity_id:this._config.entity,...e})}_startTimerCustom(){const t=3600*this._inputHours+60*this._inputMinutes+this._inputSeconds;if(t<=0)return;const e=this._formatSeconds(t);this._callService("start",{duration:e})}_startTimerPreset(t){this._callService("start",{duration:this._formatSeconds(60*t)})}_addTime(t){let e=60*this._inputHours+this._inputMinutes+t;e<0&&(e=0),this._inputHours=Math.floor(e/60),this._inputMinutes=e%60,this._inputHours>99&&(this._inputHours=99,this._inputMinutes=59),this.requestUpdate()}_adjustTime(t,e){const i={hours:"_inputHours",minutes:"_inputMinutes",seconds:"_inputSeconds"}[t],s={hours:{min:0,max:23},minutes:{min:0,max:59},seconds:{min:0,max:59}}[t];let r=(this[i]||0)+e;r<s.min&&(r=s.max),r>s.max&&(r=s.min),this[i]=r}_onSpinInput(t,e){const i={hours:{min:0,max:23},minutes:{min:0,max:59},seconds:{min:0,max:59}}[t];let s=parseInt(e.target.value)||0;s<i.min&&(s=i.min),s>i.max&&(s=i.max),this[{hours:"_inputHours",minutes:"_inputMinutes",seconds:"_inputSeconds"}[t]]=s}render(){if(!this._config)return L`<ha-card><div class="error">Not configured</div></ha-card>`;const t=!this._config.entity;let e="idle",i=0,s=3600,r=this._config.title||this._t("defaultTitle");if(!t&&this.hass&&this.hass.states[this._config.entity]){const t=this.hass.states[this._config.entity];if(e=t.state,r=this._config.title||t.attributes.friendly_name||this._config.entity,s=this._parseDurationToSeconds(t.attributes.duration)||3600,"active"===e&&t.attributes.finishes_at){let e=Math.floor((new Date(t.attributes.finishes_at).getTime()-this._now)/1e3);void 0!==this._timeOffset&&"active"===this._lastTimerState||(this._timeOffset=Math.max(0,e-s)),i=Math.max(0,e-(this._timeOffset||0)),i=Math.min(s,i)}else"paused"===e&&t.attributes.remaining?(i=this._parseDurationToSeconds(t.attributes.remaining),this._timeOffset=void 0):"idle"===e&&(i=0,this._timeOffset=void 0);this._lastTimerState=e}else t&&(e="idle",this._inputHours=0,this._inputMinutes=30);const o=s>0?Math.max(0,Math.min(100,i/s*100)):0,a=Math.floor(i/3600),n=Math.floor(i%3600/60),c=Math.floor(i%60);return L`
       <ha-card>
         <div class="card-header">
-          <div class="name">${customTitle}</div>
+          <div class="name">${r}</div>
           <div class="header-right">
-            ${state !== 'idle' ? html`
-              <span class="state-badge ${state}">${state === 'active' ? this._t('start') : this._t('pausedMessage')}</span>
-            ` : ''}
-            <ha-icon icon="${state === 'active' ? 'mdi:timer-sand' : 'mdi:timer'}"></ha-icon>
+            ${"idle"!==e?L`
+              <span class="state-badge ${e}">${"active"===e?this._t("start"):this._t("pausedMessage")}</span>
+            `:""}
+            <ha-icon icon="${"active"===e?"mdi:timer-sand":"mdi:timer"}"></ha-icon>
           </div>
         </div>
 
         <div class="card-content">
-          ${state === "idle" ? html`
+          ${"idle"===e?L`
             <!-- 대기 상태: 숫자 증감 입력 -->
             <div class="time-spinner-row">
               <div class="time-spinner">
-                <button class="spin-btn" @click="${() => this._adjustTime('hours', 1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
-                <input class="spin-value" type="number" min="0" max="23" .value="${String(this._inputHours).padStart(2, '0')}" @change="${e => this._onSpinInput('hours', e)}" @focus="${e => e.target.select()}">
-                <button class="spin-btn" @click="${() => this._adjustTime('hours', -1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
+                <button class="spin-btn" @click="${()=>this._adjustTime("hours",1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
+                <input class="spin-value" type="number" min="0" max="23" .value="${String(this._inputHours).padStart(2,"0")}" @change="${t=>this._onSpinInput("hours",t)}" @focus="${t=>t.target.select()}">
+                <button class="spin-btn" @click="${()=>this._adjustTime("hours",-1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
                 <div class="spin-label">${this._t("hoursLabel")}</div>
               </div>
               <div class="spin-separator">:</div>
               <div class="time-spinner">
-                <button class="spin-btn" @click="${() => this._adjustTime('minutes', 1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
-                <input class="spin-value" type="number" min="0" max="59" .value="${String(this._inputMinutes).padStart(2, '0')}" @change="${e => this._onSpinInput('minutes', e)}" @focus="${e => e.target.select()}">
-                <button class="spin-btn" @click="${() => this._adjustTime('minutes', -1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
+                <button class="spin-btn" @click="${()=>this._adjustTime("minutes",1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
+                <input class="spin-value" type="number" min="0" max="59" .value="${String(this._inputMinutes).padStart(2,"0")}" @change="${t=>this._onSpinInput("minutes",t)}" @focus="${t=>t.target.select()}">
+                <button class="spin-btn" @click="${()=>this._adjustTime("minutes",-1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
                 <div class="spin-label">${this._t("minutesLabel")}</div>
               </div>
               <div class="spin-separator">:</div>
               <div class="time-spinner">
-                <button class="spin-btn" @click="${() => this._adjustTime('seconds', 1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
-                <input class="spin-value" type="number" min="0" max="59" .value="${String(this._inputSeconds).padStart(2, '0')}" @change="${e => this._onSpinInput('seconds', e)}" @focus="${e => e.target.select()}">
-                <button class="spin-btn" @click="${() => this._adjustTime('seconds', -1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
+                <button class="spin-btn" @click="${()=>this._adjustTime("seconds",1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
+                <input class="spin-value" type="number" min="0" max="59" .value="${String(this._inputSeconds).padStart(2,"0")}" @change="${t=>this._onSpinInput("seconds",t)}" @focus="${t=>t.target.select()}">
+                <button class="spin-btn" @click="${()=>this._adjustTime("seconds",-1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
                 <div class="spin-label">${this._t("secondsLabel")}</div>
               </div>
             </div>
-          ` : html`
+          `:L`
             <!-- 동작/일시정지 상태: 남은 시간 표시 + 바 -->
             <div class="timer-display">
               <div class="timer-remaining">
-                <span class="time-digit">${String(h).padStart(2, '0')}</span>
+                <span class="time-digit">${String(a).padStart(2,"0")}</span>
                 <span class="time-colon">:</span>
-                <span class="time-digit">${String(m).padStart(2, '0')}</span>
+                <span class="time-digit">${String(n).padStart(2,"0")}</span>
                 <span class="time-colon">:</span>
-                <span class="time-digit">${String(s).padStart(2, '0')}</span>
+                <span class="time-digit">${String(c).padStart(2,"0")}</span>
               </div>
               <div class="timer-message" style="margin-top: 8px; font-size: 0.95rem; color: var(--custom-secondary); display: flex; justify-content: center;">
-                ${(() => {
-                  let timeArr = [];
-                  if(h > 0) timeArr.push(h + this._t("hoursStr"));
-                  if(m > 0 || h > 0) timeArr.push(m + this._t("minutesStr"));
-                  timeArr.push(s + this._t("secondsStr"));
-                  const remainStr = timeArr.join(' ');
-                  return html`<span style="background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 12px;">${remainStr} ${this._t("countdownMessage")}</span>`;
-                })()}
+                ${(()=>{let t=[];a>0&&t.push(a+this._t("hoursStr")),(n>0||a>0)&&t.push(n+this._t("minutesStr")),t.push(c+this._t("secondsStr"));const e=t.join(" ");return L`<span style="background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 12px;">${e} ${this._t("countdownMessage")}</span>`})()}
               </div>
             </div>
             <div class="progress-bar-container">
-              <div class="progress-bar ${state}" style="width: ${progressPercent}%;"></div>
+              <div class="progress-bar ${e}" style="width: ${o}%;"></div>
             </div>
           `}
 
           <div class="presets-container" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
             <div class="presets">
-              <button class="preset-btn" @click="${() => this._addTime(5)}" ?disabled="${state !== 'idle' && !isDummy}">${this._t('preset5m')}</button>
-              <button class="preset-btn" @click="${() => this._addTime(10)}" ?disabled="${state !== 'idle' && !isDummy}">${this._t('preset10m')}</button>
-              <button class="preset-btn" @click="${() => this._addTime(30)}" ?disabled="${state !== 'idle' && !isDummy}">${this._t('preset30m')}</button>
+              <button class="preset-btn" @click="${()=>this._addTime(5)}" ?disabled="${"idle"!==e&&!t}">${this._t("preset5m")}</button>
+              <button class="preset-btn" @click="${()=>this._addTime(10)}" ?disabled="${"idle"!==e&&!t}">${this._t("preset10m")}</button>
+              <button class="preset-btn" @click="${()=>this._addTime(30)}" ?disabled="${"idle"!==e&&!t}">${this._t("preset30m")}</button>
             </div>
             <div class="presets">
-              <button class="preset-btn minus" @click="${() => this._addTime(-5)}" ?disabled="${state !== 'idle' && !isDummy}">${this._t('presetMinus5m')}</button>
-              <button class="preset-btn minus" @click="${() => this._addTime(-10)}" ?disabled="${state !== 'idle' && !isDummy}">${this._t('presetMinus10m')}</button>
-              <button class="preset-btn minus" @click="${() => this._addTime(-30)}" ?disabled="${state !== 'idle' && !isDummy}">${this._t('presetMinus30m')}</button>
+              <button class="preset-btn minus" @click="${()=>this._addTime(-5)}" ?disabled="${"idle"!==e&&!t}">${this._t("presetMinus5m")}</button>
+              <button class="preset-btn minus" @click="${()=>this._addTime(-10)}" ?disabled="${"idle"!==e&&!t}">${this._t("presetMinus10m")}</button>
+              <button class="preset-btn minus" @click="${()=>this._addTime(-30)}" ?disabled="${"idle"!==e&&!t}">${this._t("presetMinus30m")}</button>
             </div>
           </div>
 
           <div class="controls">
-            ${state === "idle" ? html`
-              <button class="btn btn-primary start-btn" @click="${() => this._startTimerCustom()}" ?disabled="${isDummy}">
-                <ha-icon icon="mdi:play"></ha-icon> ${this._t('start')}
+            ${"idle"===e?L`
+              <button class="btn btn-primary start-btn" @click="${()=>this._startTimerCustom()}" ?disabled="${t}">
+                <ha-icon icon="mdi:play"></ha-icon> ${this._t("start")}
               </button>
-            ` : html`
-              ${state === "active" ? html`
-                <button class="btn btn-secondary" @click="${() => this._callService('pause')}" ?disabled="${isDummy}">
-                  <ha-icon icon="mdi:pause"></ha-icon> ${this._t('pause')}
+            `:L`
+              ${"active"===e?L`
+                <button class="btn btn-secondary" @click="${()=>this._callService("pause")}" ?disabled="${t}">
+                  <ha-icon icon="mdi:pause"></ha-icon> ${this._t("pause")}
                 </button>
-              ` : html`
-                <button class="btn btn-primary" @click="${() => this._callService('start')}" ?disabled="${isDummy}">
-                  <ha-icon icon="mdi:play"></ha-icon> ${this._t('resume')}
+              `:L`
+                <button class="btn btn-primary" @click="${()=>this._callService("start")}" ?disabled="${t}">
+                  <ha-icon icon="mdi:play"></ha-icon> ${this._t("resume")}
                 </button>
               `}
-              <button class="btn btn-danger" @click="${() => this._callService('cancel')}" ?disabled="${isDummy}">
-                <ha-icon icon="mdi:stop"></ha-icon> ${this._t('stop')}
+              <button class="btn btn-danger" @click="${()=>this._callService("cancel")}" ?disabled="${t}">
+                <ha-icon icon="mdi:stop"></ha-icon> ${this._t("stop")}
               </button>
             `}
           </div>
         </div>
       </ha-card>
-    `;
-  }
-
-  static styles = css`
+    `}static{this.styles=o`
     :host {
       display: block;
       --custom-primary: var(--primary-color, #03a9f4);
@@ -2390,136 +1320,7 @@ class HaCustomTimerCard extends LitElement {
       background: #e53935;
       box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
     }
-  `;
-}
-customElements.define("ha-custom-timer-card", HaCustomTimerCard);
-
-
-// ==========================================
-// Editor Card (Wizard)
-// ==========================================
-class HaCustomTimerCardEditor extends LitElement {
-  static properties = {
-    hass: {},
-    _config: { state: true },
-    _selectedEntity: { state: true },
-    _selectedAction: { state: true },
-    _isLoading: { state: true },
-    _creationError: { state: true }
-  };
-
-  setConfig(config) {
-    this._config = config;
-    this._selectedAction = config.action_type || "turn_off";
-  }
-
-  get _lang() {
-    return this.hass?.language && this.hass.language.includes('ko') ? 'ko' : 'en';
-  }
-
-  _t(key) {
-    return TIMER_LOCALES[this._lang]?.[key] ?? TIMER_LOCALES.en[key];
-  }
-
-  // 1. Target Entity 선택 시 Timer 헬퍼 및 브릿지 자동 생성
-  async _onTargetEntityPicked(ev) {
-    const targetEntityId = ev.detail.value;
-    if (!targetEntityId || targetEntityId === this._selectedEntity) return;
-    
-    this._selectedEntity = targetEntityId;
-    this._isLoading = true;
-    this._creationError = null;
-    
-    try {
-      const entityState = this.hass.states[targetEntityId];
-      const entityName = entityState?.attributes?.friendly_name || targetEntityId;
-      
-      let timerId = null;
-      let timerEntityId = null;
-
-      // Step A: Timer 헬퍼 생성 (Schedule처럼 내부 WS API 활용)
-      try {
-        const payload = {
-          type: "timer/create",
-          name: `${entityName}${this._t("timerSuffix")}`,
-          icon: "mdi:timer-sand"
-        };
-        const timerResult = await this.hass.callWS(payload);
-        timerId = timerResult.id;
-        timerEntityId = `timer.${timerId}`;
-        console.log("[schedule-ui] timer helper create SUCCESS:", timerEntityId);
-      } catch (e) {
-        console.warn("Timer helper auto-creation failed via config/timer/create. Error:", e);
-        this._creationError = this._t("helperFailMsg");
-        this._isLoading = false;
-        return;
-      }
-
-      // Step B: 블루프린트 참조 방식으로 자동화 브릿지 생성
-      const actionType = this._selectedAction || "turn_off";
-      const bridgeId = `timer_bridge_${timerId}`;
-      const alias = `${this._t("timerBridgeAliasPrefix")}${entityName}`;
-      
-      console.log("[schedule-ui] Creating timer bridge (blueprint):", bridgeId, "for target:", targetEntityId);
-
-      // 기존 동일 ID 브릿지 중복 제거
-      try {
-        const automations = await this.hass.callWS({ type: "config/entity_registry/list" });
-        const existing = automations.find(a => a.entity_id === `automation.${bridgeId}`);
-        if (existing) {
-          await this.hass.callWS({ type: "config/entity_registry/remove", entity_id: existing.entity_id });
-        }
-      } catch(e) {}
-
-      // 블루프린트 참조 형식 — HA '사용중' 카운트에 반영됨
-      const bridgePayload = {
-        alias: alias,
-        description: this._t("bridgeDescription"),
-        use_blueprint: {
-          path: "jewon-oh/timer-bridge-blueprint.yaml",
-          input: {
-            timer_helper: timerEntityId,
-            target_device: targetEntityId,
-            action_type: actionType
-          }
-        }
-      };
-
-      await this.hass.callApi("POST", `config/automation/config/${bridgeId}`, bridgePayload);
-      console.log("[schedule-ui] timer automation bridge (blueprint) create SUCCESS:", bridgeId);
-
-      // 설정 임시 업데이트
-      this._config = {
-        ...this._config,
-        entity: timerEntityId,
-        title: `${entityName}${this._t("timerSuffix")}`
-      };
-
-      // 설정 이벤트 발송 (HA UI에 저장 트리거)
-      this.dispatchEvent(new CustomEvent("config-changed", {
-        detail: { config: this._config },
-        bubbles: true,
-        composed: true
-      }));
-      
-    } catch (e) {
-      console.error(e);
-      this._creationError = `${this._t("errorPrefix")}${e.message}`;
-    } finally {
-      this._isLoading = false;
-    }
-  }
-
-  // _createAutomationBridge: 블루프린트 참조 방식으로 _onTargetEntityPicked에 통합 (삭제됨)
-
-  _onActionChange(ev) {
-    this._selectedAction = ev.target.value;
-  }
-
-  render() {
-    if (!this.hass || !this._config) return html``;
-
-    return html`
+  `}}customElements.define("ha-custom-timer-card",gt);class mt extends at{static{this.properties={hass:{},_config:{state:!0},_selectedEntity:{state:!0},_selectedAction:{state:!0},_isLoading:{state:!0},_creationError:{state:!0}}}setConfig(t){this._config=t,this._selectedAction=t.action_type||"turn_off"}get _lang(){return this.hass?.language&&this.hass.language.includes("ko")?"ko":"en"}_t(t){return dt[this._lang]?.[t]??dt.en[t]}async _onTargetEntityPicked(t){const e=t.detail.value;if(e&&e!==this._selectedEntity){this._selectedEntity=e,this._isLoading=!0,this._creationError=null;try{const t=this.hass.states[e],i=t?.attributes?.friendly_name||e;let s=null,r=null;try{const t={type:"timer/create",name:`${i}${this._t("timerSuffix")}`,icon:"mdi:timer-sand"};s=(await this.hass.callWS(t)).id,r=`timer.${s}`,console.log("[schedule-ui] timer helper create SUCCESS:",r)}catch(t){return console.warn("Timer helper auto-creation failed via config/timer/create. Error:",t),this._creationError=this._t("helperFailMsg"),void(this._isLoading=!1)}const o=this._selectedAction||"turn_off",a=`timer_bridge_${s}`,n=`${this._t("timerBridgeAliasPrefix")}${i}`;console.log("[schedule-ui] Creating timer bridge (blueprint):",a,"for target:",e);try{const t=(await this.hass.callWS({type:"config/entity_registry/list"})).find(t=>t.entity_id===`automation.${a}`);t&&await this.hass.callWS({type:"config/entity_registry/remove",entity_id:t.entity_id})}catch(t){}const c={alias:n,description:this._t("bridgeDescription"),use_blueprint:{path:"jewon-oh/timer-bridge-blueprint.yaml",input:{timer_helper:r,target_device:e,action_type:o}}};await this.hass.callApi("POST",`config/automation/config/${a}`,c),console.log("[schedule-ui] timer automation bridge (blueprint) create SUCCESS:",a),this._config={...this._config,entity:r,title:`${i}${this._t("timerSuffix")}`},this.dispatchEvent(new CustomEvent("config-changed",{detail:{config:this._config},bubbles:!0,composed:!0}))}catch(t){console.error(t),this._creationError=`${this._t("errorPrefix")}${t.message}`}finally{this._isLoading=!1}}}_onActionChange(t){this._selectedAction=t.target.value}render(){return this.hass&&this._config?L`
       <div class="card-config">
         <div class="wizard-header">
           <ha-icon icon="mdi:magic-staff"></ha-icon>
@@ -2535,7 +1336,7 @@ class HaCustomTimerCardEditor extends LitElement {
             <label>${this._t("editorTargetDevice")}</label>
             <ha-selector
               .hass=${this.hass}
-              .selector=${{ entity: { domain: ["light", "switch", "fan", "climate", "media_player"] } }}
+              .selector=${{entity:{domain:["light","switch","fan","climate","media_player"]}}}
               .value=${this._selectedEntity}
               @value-changed=${this._onTargetEntityPicked}
             ></ha-selector>
@@ -2552,19 +1353,19 @@ class HaCustomTimerCardEditor extends LitElement {
           </div>
         </div>
 
-        ${this._isLoading ? html`
+        ${this._isLoading?L`
           <div class="status-msg info">
             <ha-icon icon="mdi:loading" class="spin"></ha-icon>
             ${this._t("syncingMessage")}
           </div>
-        ` : ""}
+        `:""}
 
-        ${this._creationError ? html`
+        ${this._creationError?L`
           <div class="status-msg error">
             <ha-icon icon="mdi:alert-circle"></ha-icon>
             ${this._creationError}
           </div>
-        ` : ""}
+        `:""}
 
         <!-- 수동 모드 지원 -->
         <hr class="divider" />
@@ -2576,17 +1377,11 @@ class HaCustomTimerCardEditor extends LitElement {
             .value=${this._config.entity}
             domain="timer"
             .configValue=${"entity"}
-            @value-changed=${(e) => {
-              this._config = { ...this._config, entity: e.detail.value };
-              this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
-            }}
+            @value-changed=${t=>{this._config={...this._config,entity:t.detail.value},this.dispatchEvent(new CustomEvent("config-changed",{detail:{config:this._config},bubbles:!0,composed:!0}))}}
           ></ha-entity-picker>
         </div>
       </div>
-    `;
-  }
-
-  static styles = css`
+    `:L``}static{this.styles=o`
     .card-config {
       display: flex;
       flex-direction: column;
@@ -2671,17 +1466,4 @@ class HaCustomTimerCardEditor extends LitElement {
     @keyframes spin {
       100% { transform: rotate(360deg); }
     }
-  `;
-}
-customElements.define("ha-custom-timer-card-editor", HaCustomTimerCardEditor);
-window.customCards = window.customCards || [];
-(() => {
-  const t = TIMER_LOCALES[detectLang()] ?? TIMER_LOCALES.en;
-  window.customCards.push({
-    type: "ha-custom-timer-card",
-    name: t.cardName,
-    preview: true,
-    description: t.cardDescription,
-    documentationURL: "https://github.com/jewon-oh/schedule-ui",
-  });
-})();
+  `}}customElements.define("ha-custom-timer-card-editor",mt),window.customCards=window.customCards||[],(()=>{const t=dt[lt()]??dt.en;window.customCards.push({type:"ha-custom-timer-card",name:t.cardName,preview:!0,description:t.cardDescription,documentationURL:"https://github.com/jewon-oh/schedule-ui"})})();
