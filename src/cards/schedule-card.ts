@@ -738,7 +738,11 @@ class HaCustomScheduleCard extends LitElement {
     /* ── 데이 에디터 (단일 컬럼) ── */
     .day-editor {
       margin-bottom: 16px;
-      background: rgba(255,255,255,0.02);
+      /* secondary-background-color is HA's theme-aware "subtly different
+         from the card" tone. On dark themes it darkens slightly, on light
+         themes it lightens slightly — works both directions. The previous
+         rgba(255,255,255,0.02) only registered on dark backgrounds. */
+      background: var(--secondary-background-color, rgba(127,127,127,0.06));
       border-radius: 12px;
       padding: 12px 8px;
     }
@@ -765,7 +769,10 @@ class HaCustomScheduleCard extends LitElement {
     .hour-labels-col span {
       font-size: 0.7rem;
       color: var(--custom-secondary);
-      opacity: 0.55;
+      /* Was opacity 0.55 — fine on a dark card where secondary-text-color
+         is already near-white, but on a light theme the secondary text is
+         already a 60% black and 0.55 made the hour numbers unreadable. */
+      opacity: 0.85;
       line-height: 1;
       transform: translateY(-50%);
     }
@@ -776,9 +783,11 @@ class HaCustomScheduleCard extends LitElement {
     .editor-column {
       position: relative;
       flex: 1;
-      background: rgba(255,255,255,0.02);
+      /* Same reasoning as .day-editor — theme-aware neutral instead of
+         dark-only rgba(255,255,255,0.02) / 0.06. */
+      background: var(--card-background-color, rgba(127,127,127,0.04));
       border-radius: 6px;
-      border: 1px solid rgba(255,255,255,0.06);
+      border: 1px solid var(--divider-color, rgba(127,127,127,0.18));
       /* overflow: visible — 핸들·삭제 버튼·time pill은 의도적으로 블록 모서리
          바깥에 그려진다. hidden을 쓰면 모서리에서 잘려 사용자 메시지처럼
          "뱃지가 프레임보다 아래에 렌더링"되는 것처럼 보인다. 블록 자체는
@@ -794,7 +803,9 @@ class HaCustomScheduleCard extends LitElement {
       left: 0;
       right: 0;
       height: 1px;
-      background: rgba(255,255,255,0.05);
+      /* Divider color follows HA's theme. The old white-with-alpha line
+         was invisible on light themes. */
+      background: var(--divider-color, rgba(127,127,127,0.22));
       pointer-events: none;
     }
 
