@@ -89,48 +89,61 @@ class HaCustomScheduleCardEditor extends LitElement {
       return html``;
     }
 
+    // The auto-create wizard calls schedule/create + config/automation/config/...
+    // both of which are admin-only HA APIs. Non-admin users get 401, so the
+    // wizard is hidden for them and only the "pick existing helper" path is
+    // exposed.
+    const isAdmin = !!this.hass.user?.is_admin;
+
     return html`
       <div class="card-config">
 
-        <div class="wizard-section">
-          <div style="font-weight: 600; color: var(--primary-color); display: flex; align-items: center; gap: 8px;">
-            <ha-icon icon="mdi:magic-staff"></ha-icon>
-            <span>${this._t("editorWizardTitle")}</span>
+        ${isAdmin ? html`
+          <div class="wizard-section">
+            <div style="font-weight: 600; color: var(--primary-color); display: flex; align-items: center; gap: 8px;">
+              <ha-icon icon="mdi:magic-staff"></ha-icon>
+              <span>${this._t("editorWizardTitle")}</span>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--secondary-text-color); margin: 8px 0 16px 0; line-height: 1.4;">
+              ${this._t("editorWizardDesc")}
+            </p>
+
+            ${this._isCreating ? html`
+              <div style="text-align: center; padding: 20px; color: var(--primary-color);">
+                <ha-icon icon="mdi:loading" class="spin"></ha-icon>
+                <span style="margin-left: 8px;">${this._t("creating")}</span>
+              </div>
+            ` : html`
+              <ha-selector
+                .hass=${this.hass}
+                .selector=${{ entity: { domain: ["switch", "light", "fan", "climate", "cover"] } }}
+                .value=${""}
+                .required=${false}
+                .label=${this._t("editorTargetDevice")}
+                @value-changed=${this._onAutoCreateDevicePicker}
+              ></ha-selector>
+            `}
+
+            ${this._createResult?.success ? html`
+              <div style="margin-top: 12px; color: var(--success-color, #4caf50); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+                <ha-icon icon="mdi:check-circle" style="--mdc-icon-size: 18px;"></ha-icon>
+                <span>${this._createResult.entityId} ${this._t("editorCreateSuccess")}</span>
+              </div>
+            ` : ''}
+            ${this._createResult && !this._createResult.success ? html`
+              <div style="margin-top: 12px; color: var(--error-color, #f44336); font-size: 0.9rem;">
+                ${this._t("editorErrorPrefix")}${this._createResult.message}
+              </div>
+            ` : ''}
           </div>
-          <p style="font-size: 0.85rem; color: var(--secondary-text-color); margin: 8px 0 16px 0; line-height: 1.4;">
-            ${this._t("editorWizardDesc")}
-          </p>
 
-          ${this._isCreating ? html`
-            <div style="text-align: center; padding: 20px; color: var(--primary-color);">
-              <ha-icon icon="mdi:loading" class="spin"></ha-icon>
-              <span style="margin-left: 8px;">${this._t("creating")}</span>
-            </div>
-          ` : html`
-            <ha-selector
-              .hass=${this.hass}
-              .selector=${{ entity: { domain: ["switch", "light", "fan", "climate", "cover"] } }}
-              .value=${""}
-              .required=${false}
-              .label=${this._t("editorTargetDevice")}
-              @value-changed=${this._onAutoCreateDevicePicker}
-            ></ha-selector>
-          `}
-
-          ${this._createResult?.success ? html`
-            <div style="margin-top: 12px; color: var(--success-color, #4caf50); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
-              <ha-icon icon="mdi:check-circle" style="--mdc-icon-size: 18px;"></ha-icon>
-              <span>${this._createResult.entityId} ${this._t("editorCreateSuccess")}</span>
-            </div>
-          ` : ''}
-          ${this._createResult && !this._createResult.success ? html`
-            <div style="margin-top: 12px; color: var(--error-color, #f44336); font-size: 0.9rem;">
-              ${this._t("editorErrorPrefix")}${this._createResult.message}
-            </div>
-          ` : ''}
-        </div>
-
-        <div style="height: 1px; background: var(--divider-color, rgba(100,100,100,0.2)); margin: 24px 0;"></div>
+          <div style="height: 1px; background: var(--divider-color, rgba(100,100,100,0.2)); margin: 24px 0;"></div>
+        ` : html`
+          <div style="padding: 12px 14px; background: rgba(255, 152, 0, 0.08); border: 1px solid rgba(255, 152, 0, 0.25); border-radius: 8px; font-size: 0.85rem; color: var(--secondary-text-color); margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-start;">
+            <ha-icon icon="mdi:shield-account" style="--mdc-icon-size: 18px; color: #ff9800; flex-shrink: 0;"></ha-icon>
+            <span>${this._t("adminOnlyWizard")}</span>
+          </div>
+        `}
 
         <div style="font-weight: 600; margin-bottom: 16px; color: var(--primary-text-color);">
           ${this._t("editorAdvanced")}

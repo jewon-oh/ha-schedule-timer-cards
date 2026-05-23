@@ -284,7 +284,13 @@ class HaCustomScheduleCard extends LitElement {
       await this._loadSchedule();
     } catch (e) {
       console.error("[schedule-ui] updateSchedule FAILED:", e);
-      this._showToast(`${this._t("saveFailed")} ${e?.message || e}`);
+      // schedule/update requires write access to the schedule helper, which
+      // ships as admin-only by default in HA. Surface a translated, friendly
+      // message instead of dumping the raw 401 / "unauthorized" string.
+      const code = e?.code || e?.error?.code;
+      const msg = String(e?.message || e || "").toLowerCase();
+      const isAuth = code === "unauthorized" || msg.includes("unauthorized") || msg.includes("not allowed");
+      this._showToast(isAuth ? this._t("unauthorized") : `${this._t("saveFailed")} ${e?.message || e}`);
       await this._loadSchedule();
     } finally {
       this._isEditing = false;

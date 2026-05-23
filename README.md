@@ -54,6 +54,16 @@ Single JS file. UI auto-switches between English and Korean based on your Home A
 1. Copy `timer-schedule-card.js` to `/config/www/`.
 2. Add `/local/timer-schedule-card.js` as a `JavaScript Module` resource under **Settings → Dashboards → Resources**.
 
+> **Mobile / Companion cache:** HA's service worker can keep an old copy of the
+> bundle even after you refresh. Bump a query-string on the resource URL —
+> e.g. `/local/timer-schedule-card.js?v=1.4.2` — and update it on every release
+> to force a re-fetch.
+>
+> **Permissions:** the **auto-create wizard** calls admin-only HA APIs
+> (`schedule/create`, `timer/create`, `config/automation/config/*`). Non-admin
+> users see the wizard hidden and can only pick an existing helper. Have an
+> admin create the helper first, then share the dashboard.
+
 ## Usage
 
 ### 1. Auto-create with the wizard

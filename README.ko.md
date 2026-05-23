@@ -54,6 +54,15 @@
 1. `timer-schedule-card.js`를 `/config/www/`에 복사합니다.
 2. **설정 → 대시보드 → 리소스**에서 `/local/timer-schedule-card.js`를 `JavaScript Module` 유형으로 추가합니다.
 
+> **모바일/Companion 앱 캐시:** HA의 service worker가 새로고침 후에도 이전 번들을
+> 그대로 들고 있는 경우가 있습니다. 리소스 URL 뒤에 `?v=1.4.2`처럼 쿼리스트링을
+>달고 릴리스마다 숫자를 올리면 강제로 다시 받습니다.
+>
+> **권한:** **자동 생성 마법사**는 관리자 전용 HA API
+> (`schedule/create`, `timer/create`, `config/automation/config/*`)를 호출합니다.
+> 일반 사용자에게는 마법사가 숨겨지고, 기존 헬퍼 선택만 가능합니다. 관리자가
+> 헬퍼를 먼저 만들고 대시보드를 공유하세요.
+
 ## 사용 방법
 
 ### 1. 마법사로 자동 생성

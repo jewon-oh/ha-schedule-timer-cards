@@ -45,6 +45,8 @@ export const TIMER_LOCALES = {
     syncingMessage: "동기화 중입니다...",
     generatedTimerLabel: " (생성된 타이머)",
     notConfigured: "카드가 구성되지 않았습니다.",
+    adminOnlyWizard: "타이머 자동 생성은 관리자만 가능합니다. 이미 만들어진 타이머를 아래에서 선택하세요.",
+    unauthorized: "권한이 없습니다. 관리자에게 문의하세요.",
   },
   en: {
     addTitle: "+ Add Time",
@@ -89,6 +91,8 @@ export const TIMER_LOCALES = {
     syncingMessage: "Syncing...",
     generatedTimerLabel: " (generated)",
     notConfigured: "Card is not configured.",
+    adminOnlyWizard: "Auto-creating a timer requires admin rights. Pick an existing timer below.",
+    unauthorized: "Not authorized. Ask an administrator.",
   },
 } as const;
 

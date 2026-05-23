@@ -60,6 +60,8 @@ export const LOCALES = {
     saveFailed: "저장에 실패했습니다.",
     blockOverlap: "다른 시간 블록과 겹쳐 추가할 수 없습니다.",
     notConfigured: "카드가 구성되지 않았습니다.",
+    adminOnlyWizard: "스케쥴 자동 생성은 관리자만 가능합니다. 이미 만들어진 스케쥴을 아래에서 선택하세요.",
+    unauthorized: "권한이 없습니다. 관리자에게 문의하세요.",
   },
   en: {
     addBlock: "Add New Block",
@@ -120,6 +122,8 @@ export const LOCALES = {
     saveFailed: "Failed to save schedule.",
     blockOverlap: "This range overlaps an existing block.",
     notConfigured: "Card is not configured.",
+    adminOnlyWizard: "Auto-creating a schedule requires admin rights. Pick an existing schedule below.",
+    unauthorized: "Not authorized. Ask an administrator.",
   },
 } as const;
 

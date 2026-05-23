@@ -123,54 +123,62 @@ class HaCustomTimerCardEditor extends LitElement {
   render() {
     if (!this.hass || !this._config) return html``;
 
+    // timer/create + config/automation/config/... are admin-only.
+    // Non-admin users see only the "pick existing timer" path.
+    const isAdmin = !!this.hass.user?.is_admin;
+
     return html`
       <div class="card-config">
-        <div class="wizard-header">
-          <ha-icon icon="mdi:magic-staff"></ha-icon>
-          <div>
-            <h3>${this._t("editorWizardTitle")}</h3>
-            <p>${this._t("editorWizardDesc")}</p>
+        ${isAdmin ? html`
+          <div class="wizard-header">
+            <ha-icon icon="mdi:magic-staff"></ha-icon>
+            <div>
+              <h3>${this._t("editorWizardTitle")}</h3>
+              <p>${this._t("editorWizardDesc")}</p>
+            </div>
           </div>
-        </div>
 
-        <div class="wizard-fields">
-          <!-- 타겟 기기 픽커 -->
-          <div class="wizard-field">
-            <label>${this._t("editorTargetDevice")}</label>
-            <ha-selector
-              .hass=${this.hass}
-              .selector=${{ entity: { domain: ["light", "switch", "fan", "climate", "media_player"] } }}
-              .value=${this._selectedEntity}
-              @value-changed=${this._onTargetEntityPicked}
-            ></ha-selector>
-          </div>
-          
-          <!-- 동작 방식 픽커 -->
-          <div class="wizard-field">
-            <label>${this._t("editorActionType")}</label>
-            <select class="custom-select" .value="${this._selectedAction}" @change="${this._onActionChange}">
-              <option value="turn_off">${this._t("editorActionOff")}</option>
-              <option value="turn_on">${this._t("editorActionOn")}</option>
-              <option value="toggle">${this._t("editorActionToggle")}</option>
-            </select>
-          </div>
-        </div>
+          <div class="wizard-fields">
+            <div class="wizard-field">
+              <label>${this._t("editorTargetDevice")}</label>
+              <ha-selector
+                .hass=${this.hass}
+                .selector=${{ entity: { domain: ["light", "switch", "fan", "climate", "media_player"] } }}
+                .value=${this._selectedEntity}
+                @value-changed=${this._onTargetEntityPicked}
+              ></ha-selector>
+            </div>
 
-        ${this._isLoading ? html`
-          <div class="status-msg info">
-            <ha-icon icon="mdi:loading" class="spin"></ha-icon>
-            ${this._t("syncingMessage")}
+            <div class="wizard-field">
+              <label>${this._t("editorActionType")}</label>
+              <select class="custom-select" .value="${this._selectedAction}" @change="${this._onActionChange}">
+                <option value="turn_off">${this._t("editorActionOff")}</option>
+                <option value="turn_on">${this._t("editorActionOn")}</option>
+                <option value="toggle">${this._t("editorActionToggle")}</option>
+              </select>
+            </div>
           </div>
-        ` : ""}
 
-        ${this._creationError ? html`
-          <div class="status-msg error">
-            <ha-icon icon="mdi:alert-circle"></ha-icon>
-            ${this._creationError}
+          ${this._isLoading ? html`
+            <div class="status-msg info">
+              <ha-icon icon="mdi:loading" class="spin"></ha-icon>
+              ${this._t("syncingMessage")}
+            </div>
+          ` : ""}
+
+          ${this._creationError ? html`
+            <div class="status-msg error">
+              <ha-icon icon="mdi:alert-circle"></ha-icon>
+              ${this._creationError}
+            </div>
+          ` : ""}
+        ` : html`
+          <div class="admin-notice">
+            <ha-icon icon="mdi:shield-account"></ha-icon>
+            <span>${this._t("adminOnlyWizard")}</span>
           </div>
-        ` : ""}
+        `}
 
-        <!-- 수동 모드 지원 -->
         <hr class="divider" />
         
         <div class="wizard-field">
@@ -268,6 +276,23 @@ class HaCustomTimerCardEditor extends LitElement {
     .status-msg.error {
       background: rgba(244, 67, 54, 0.1);
       color: #f44336;
+    }
+    .admin-notice {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 12px 14px;
+      background: rgba(255, 152, 0, 0.08);
+      border: 1px solid rgba(255, 152, 0, 0.25);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: var(--secondary-text-color);
+      margin-bottom: 16px;
+    }
+    .admin-notice ha-icon {
+      --mdc-icon-size: 18px;
+      color: #ff9800;
+      flex-shrink: 0;
     }
     .spin {
       animation: spin 1s linear infinite;
