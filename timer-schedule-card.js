@@ -225,7 +225,404 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
     @keyframes spin {
       100% { transform: rotate(360deg); }
     }
-  `}}customElements.define("ha-custom-timer-card-editor",pt),console.log("%c[schedule-ui] v1.4.0 loaded","color: #03a9f4; font-weight: bold; font-size: 14px;");const ut=["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];class gt extends at{static{this.properties={_config:{state:!0},_hass:{state:!1},_scheduleData:{state:!0},_activeDays:{state:!0},_blocks:{state:!0},_showCreateWizard:{state:!0},_isCreating:{state:!0},_createResult:{state:!0},_dragStartMin:{state:!0},_dragEndMin:{state:!0},_isDragging:{state:!0},_selectedBlockIdx:{state:!0},_resizingBlockIdx:{state:!0},_resizingEdge:{state:!0},_toast:{state:!0},_confirm:{state:!0}}}constructor(){super(),this._scheduleData=null;const t=0===(new Date).getDay()?6:(new Date).getDay()-1;this._activeDays=[t],this._blocks=[],this._showCreateWizard=!1,this._isCreating=!1,this._createResult=null,this._lang="en",this._isEditing=!1,this._dragStartMin=null,this._dragEndMin=null,this._isDragging=!1,this._selectedBlockIdx=null,this._resizingBlockIdx=null,this._resizingEdge=null,this._toast=null,this._confirm=null,this._toastTimer=null}_showToast(t,e=3e3){this._toastTimer&&clearTimeout(this._toastTimer),this._toast={message:t},this._toastTimer=setTimeout(()=>{this._toast=null,this._toastTimer=null},e)}_openConfirm(t,e){this._confirm={message:t,onConfirm:e}}_closeConfirm(){this._confirm=null}setConfig(t){this._config=t,this._hass&&this._loadSchedule()}set hass(t){const e=this._hass;this._hass=t;let i=!e;if(t&&t.language){const e=t.language.startsWith("ko")?"ko":"en";this._lang!==e&&(this._lang=e,i=!0)}i&&this.requestUpdate(),!e&&t&&this._config&&this._loadSchedule()}_t(t){return ct[this._lang][t]||ct.en[t]}async _loadSchedule(){if(this._hass&&this._config.entity)try{const t=await this._hass.callWS({type:"schedule/list"}),e=this._config.entity,i=e.split(".")[1];let s=i;try{const t=await this._hass.callWS({type:"config/entity_registry/get",entity_id:e});t&&t.unique_id&&(s=t.unique_id,console.log("[schedule-ui] entity registry → unique_id:",s))}catch(t){console.warn("[schedule-ui] entity registry 조회 실패, slug 사용:",i,t)}let r=t.find(t=>t.id===s);if(r||(r=t.find(t=>t.id===i)),!r){const i=this._hass.states?.[e],s=i?.attributes?.friendly_name;s&&(r=t.find(t=>t.name===s))}console.log("[schedule-ui] loadSchedule - entity:",e,"storageId:",s,"matched:",r?r.id:"NONE"),!r&&t.length>0&&console.warn("[schedule-ui] 매칭 실패! available ids:",t.map(t=>`${t.id}(${t.name})`)),r&&(this._scheduleData=r,this._hydrateFromSchedule(r))}catch(t){console.error("[schedule-ui] Failed to load schedules",t)}}_hydrateFromSchedule(t){const e=new Map,i=new Set;for(let s=0;s<ut.length;s++){const r=t[ut[s]]||[];r.length>0&&i.add(s);for(const t of r){const i=`${t.from}~${t.to}`;e.has(i)||e.set(i,{from:t.from,to:t.to})}}const s=[...e.values()].sort((t,e)=>t.from.localeCompare(e.from));if(this._blocks=s,0===i.size){const t=0===(new Date).getDay()?6:(new Date).getDay()-1;this._activeDays=[t]}else this._activeDays=[...i].sort((t,e)=>t-e)}async _updateSchedule(){if(this._hass&&this._scheduleData){this._isEditing=!0;try{const t=this._scheduleData.id,e={name:this._scheduleData.name};this._scheduleData.icon&&(e.icon=this._scheduleData.icon);const i=[...this._blocks].sort((t,e)=>t.from.localeCompare(e.from)),s=new Set(this._activeDays);for(let t=0;t<ut.length;t++)e[ut[t]]=s.has(t)?i:[];console.log("[schedule-ui] updateSchedule - schedule_id:",t,"activeDays:",this._activeDays,"blocks:",i),await this._hass.callWS({type:"schedule/update",schedule_id:t,...e}),await this._loadSchedule()}catch(t){console.error("[schedule-ui] updateSchedule FAILED:",t),this._showToast(`${this._t("saveFailed")} ${t?.message||t}`),await this._loadSchedule()}finally{this._isEditing=!1}}}_deleteBlock(t){!this._isEditing&&this._scheduleData&&this._config?.entity&&(t<0||t>=this._blocks.length||this._openConfirm(this._t("confirmDeleteBlock"),async()=>{this._closeConfirm(),this._blocks=this._blocks.filter((e,i)=>i!==t),this._selectedBlockIdx=null,await this._updateSchedule()}))}_yToMinutes(t,e){const i=t.getBoundingClientRect(),s=Math.max(0,Math.min(1,(e-i.top)/i.height)),r=15*Math.round(1440*s/15);return Math.max(0,Math.min(1440,r))}_minutesToTimeStr(t){const e=Math.max(0,Math.min(1439,t)),i=Math.floor(e/60),s=e%60;return`${String(i).padStart(2,"0")}:${String(s).padStart(2,"0")}:00`}_onBarPointerDown(t){if(this._isEditing)return;if((t.composedPath?t.composedPath():[]).some(t=>t?.classList?.contains?.("editor-block")))return;this._selectedBlockIdx=null;const e=t.currentTarget;try{e.setPointerCapture(t.pointerId)}catch(t){}const i=this._yToMinutes(e,t.clientY);this._isDragging=!0,this._dragStartMin=i,this._dragEndMin=i}_onBarPointerMove(t){this._isDragging&&(this._dragEndMin=this._yToMinutes(t.currentTarget,t.clientY))}async _onBarPointerUp(t){if(!this._isDragging)return;const e=t.currentTarget;try{e.releasePointerCapture(t.pointerId)}catch(t){}const i=Math.min(this._dragStartMin,this._dragEndMin),s=Math.max(this._dragStartMin,this._dragEndMin);this._isDragging=!1,this._dragStartMin=null,this._dragEndMin=null,s-i<15||(this._overlapsExisting(i,s)?this._showToast(this._t("blockOverlap")):(this._blocks=[...this._blocks,{from:this._minutesToTimeStr(i),to:this._minutesToTimeStr(s)}].sort((t,e)=>t.from.localeCompare(e.from)),await this._updateSchedule()))}_selectBlock(t,e){t.stopPropagation(),this._selectedBlockIdx=this._selectedBlockIdx===e?null:e}_onSelectedDeleteClick(t,e){t.stopPropagation(),this._deleteBlock(e)}_onHandlePointerDown(t,e,i){if(t.stopPropagation(),!this._isEditing){try{t.currentTarget.setPointerCapture(t.pointerId)}catch(t){}this._resizingBlockIdx=e,this._resizingEdge=i}}_onHandlePointerMove(t,e,i){if(this._resizingBlockIdx!==e||this._resizingEdge!==i)return;const s=t.currentTarget.closest(".editor-column");if(!s)return;const r=this._blocks[e];if(!r)return;const o=this._yToMinutes(s,t.clientY),a=this._timeToMinutes(r.from),n=this._timeToMinutes(r.to),c=this._blocks.filter((t,i)=>i!==e);let d=a,l=n;if("top"===i){const t=c.map(t=>this._timeToMinutes(t.to)).filter(t=>t<=n).reduce((t,e)=>Math.max(t,e),0);d=Math.max(t,Math.min(o,n-15))}else{const t=c.map(t=>this._timeToMinutes(t.from)).filter(t=>t>=a).reduce((t,e)=>Math.min(t,e),1440);l=Math.min(t,Math.max(o,a+15))}d===a&&l===n||(this._blocks=this._blocks.map((t,i)=>i===e?{from:this._minutesToTimeStr(d),to:this._minutesToTimeStr(l)}:t))}async _onHandlePointerUp(t,e,i){if(this._resizingBlockIdx===e&&this._resizingEdge===i){try{t.currentTarget.releasePointerCapture(t.pointerId)}catch(t){}this._resizingBlockIdx=null,this._resizingEdge=null,await this._updateSchedule()}}_overlapsExisting(t,e,i=-1){return this._blocks.some((s,r)=>{if(r===i)return!1;const o=this._timeToMinutes(s.from),a=this._timeToMinutes(s.to);return t<a&&e>o})}_currentDragOverlaps(){if(!this._isDragging||null===this._dragStartMin)return!1;const t=Math.min(this._dragStartMin,this._dragEndMin),e=Math.max(this._dragStartMin,this._dragEndMin);return!(e-t<15)&&this._overlapsExisting(t,e)}async _toggleActiveDay(t){if(this._isEditing)return;const e=this._activeDays.includes(t)?this._activeDays.filter(e=>e!==t):[...this._activeDays,t].sort((t,e)=>t-e);0!==e.length?(this._activeDays=e,await this._updateSchedule()):this._showToast(this._t("atLeastOneDay"))}_formatTime(t){if(!t)return"";let[e,i]=t.split(":"),s=new Date;return s.setHours(parseInt(e)),s.setMinutes(parseInt(i)),new Intl.DateTimeFormat(this._lang,{hour:"numeric",minute:"numeric",hour12:!0}).format(s)}_timeToMinutes(t){if(!t)return 0;const e=t.split(":");return 60*parseInt(e[0])+parseInt(e[1])}render(){if(!this._config)return L`<ha-card><div class="error">Not configured</div></ha-card>`;if(!this._hass)return L`
+  `}}customElements.define("ha-custom-timer-card-editor",pt);class ut extends at{static{this.properties={hass:{type:Object},_config:{state:!0},_now:{state:!0},_inputHours:{state:!0},_inputMinutes:{state:!0},_inputSeconds:{state:!0}}}constructor(){super(),this._now=Date.now(),this._inputHours=0,this._inputMinutes=30,this._inputSeconds=0}connectedCallback(){super.connectedCallback(),this._timerInterval=setInterval(()=>{this._now=Date.now()},1e3)}disconnectedCallback(){super.disconnectedCallback(),this._timerInterval&&clearInterval(this._timerInterval)}static getConfigElement(){return document.createElement("ha-custom-timer-card-editor")}static getStubConfig(){return{type:"custom:ha-custom-timer-card"}}setConfig(t){if(!t)throw new Error("Invalid configuration");this._config=t}get _lang(){return this.hass?.language&&this.hass.language.includes("ko")?"ko":"en"}_t(t){return dt[this._lang]?.[t]??dt.en[t]}_parseDurationToSeconds(t){if(!t)return 0;const e=t.split(":").map(Number);return 3===e.length?3600*e[0]+60*e[1]+e[2]:0}_formatSeconds(t){if(t<=0)return"00:00:00";const e=Math.floor(t/3600),i=Math.floor(t%3600/60),s=Math.floor(t%60);return`${e.toString().padStart(2,"0")}:${i.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`}_callService(t,e={}){this._config.entity&&this.hass.callService("timer",t,{entity_id:this._config.entity,...e})}_startTimerCustom(){const t=3600*this._inputHours+60*this._inputMinutes+this._inputSeconds;if(t<=0)return;const e=this._formatSeconds(t);this._callService("start",{duration:e})}_startTimerPreset(t){this._callService("start",{duration:this._formatSeconds(60*t)})}_addTime(t){let e=60*this._inputHours+this._inputMinutes+t;e<0&&(e=0),this._inputHours=Math.floor(e/60),this._inputMinutes=e%60,this._inputHours>99&&(this._inputHours=99,this._inputMinutes=59),this.requestUpdate()}_adjustTime(t,e){const i={hours:"_inputHours",minutes:"_inputMinutes",seconds:"_inputSeconds"}[t],s={hours:{min:0,max:23},minutes:{min:0,max:59},seconds:{min:0,max:59}}[t];let r=(this[i]||0)+e;r<s.min&&(r=s.max),r>s.max&&(r=s.min),this[i]=r}_onSpinInput(t,e){const i={hours:{min:0,max:23},minutes:{min:0,max:59},seconds:{min:0,max:59}}[t];let s=parseInt(e.target.value)||0;s<i.min&&(s=i.min),s>i.max&&(s=i.max),this[{hours:"_inputHours",minutes:"_inputMinutes",seconds:"_inputSeconds"}[t]]=s}render(){if(!this._config)return L`<ha-card><div class="error">Not configured</div></ha-card>`;const t=!this._config.entity;let e="idle",i=0,s=3600,r=this._config.title||this._t("defaultTitle");if(!t&&this.hass&&this.hass.states[this._config.entity]){const t=this.hass.states[this._config.entity];if(e=t.state,r=this._config.title||t.attributes.friendly_name||this._config.entity,s=this._parseDurationToSeconds(t.attributes.duration)||3600,"active"===e&&t.attributes.finishes_at){let e=Math.floor((new Date(t.attributes.finishes_at).getTime()-this._now)/1e3);void 0!==this._timeOffset&&"active"===this._lastTimerState||(this._timeOffset=Math.max(0,e-s)),i=Math.max(0,e-(this._timeOffset||0)),i=Math.min(s,i)}else"paused"===e&&t.attributes.remaining?(i=this._parseDurationToSeconds(t.attributes.remaining),this._timeOffset=void 0):"idle"===e&&(i=0,this._timeOffset=void 0);this._lastTimerState=e}else t&&(e="idle",this._inputHours=0,this._inputMinutes=30);const o=s>0?Math.max(0,Math.min(100,i/s*100)):0,a=Math.floor(i/3600),n=Math.floor(i%3600/60),c=Math.floor(i%60);return L`
+      <ha-card>
+        <div class="card-header">
+          <div class="name">${r}</div>
+          <div class="header-right">
+            ${"idle"!==e?L`
+              <span class="state-badge ${e}">${"active"===e?this._t("start"):this._t("pausedMessage")}</span>
+            `:""}
+            <ha-icon icon="${"active"===e?"mdi:timer-sand":"mdi:timer"}"></ha-icon>
+          </div>
+        </div>
+
+        <div class="card-content">
+          ${"idle"===e?L`
+            <!-- 대기 상태: 숫자 증감 입력 -->
+            <div class="time-spinner-row">
+              <div class="time-spinner">
+                <button class="spin-btn" @click="${()=>this._adjustTime("hours",1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
+                <input class="spin-value" type="number" min="0" max="23" .value="${String(this._inputHours).padStart(2,"0")}" @change="${t=>this._onSpinInput("hours",t)}" @focus="${t=>t.target.select()}">
+                <button class="spin-btn" @click="${()=>this._adjustTime("hours",-1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
+                <div class="spin-label">${this._t("hoursLabel")}</div>
+              </div>
+              <div class="spin-separator">:</div>
+              <div class="time-spinner">
+                <button class="spin-btn" @click="${()=>this._adjustTime("minutes",1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
+                <input class="spin-value" type="number" min="0" max="59" .value="${String(this._inputMinutes).padStart(2,"0")}" @change="${t=>this._onSpinInput("minutes",t)}" @focus="${t=>t.target.select()}">
+                <button class="spin-btn" @click="${()=>this._adjustTime("minutes",-1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
+                <div class="spin-label">${this._t("minutesLabel")}</div>
+              </div>
+              <div class="spin-separator">:</div>
+              <div class="time-spinner">
+                <button class="spin-btn" @click="${()=>this._adjustTime("seconds",1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
+                <input class="spin-value" type="number" min="0" max="59" .value="${String(this._inputSeconds).padStart(2,"0")}" @change="${t=>this._onSpinInput("seconds",t)}" @focus="${t=>t.target.select()}">
+                <button class="spin-btn" @click="${()=>this._adjustTime("seconds",-1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
+                <div class="spin-label">${this._t("secondsLabel")}</div>
+              </div>
+            </div>
+          `:L`
+            <!-- 동작/일시정지 상태: 남은 시간 표시 + 바 -->
+            <div class="timer-display">
+              <div class="timer-remaining">
+                <span class="time-digit">${String(a).padStart(2,"0")}</span>
+                <span class="time-colon">:</span>
+                <span class="time-digit">${String(n).padStart(2,"0")}</span>
+                <span class="time-colon">:</span>
+                <span class="time-digit">${String(c).padStart(2,"0")}</span>
+              </div>
+              <div class="timer-message" style="margin-top: 8px; font-size: 0.95rem; color: var(--custom-secondary); display: flex; justify-content: center;">
+                ${(()=>{let t=[];a>0&&t.push(a+this._t("hoursStr")),(n>0||a>0)&&t.push(n+this._t("minutesStr")),t.push(c+this._t("secondsStr"));const e=t.join(" ");return L`<span style="background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 12px;">${e} ${this._t("countdownMessage")}</span>`})()}
+              </div>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar ${e}" style="width: ${o}%;"></div>
+            </div>
+          `}
+
+          <div class="presets-container" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+            <div class="presets">
+              <button class="preset-btn" @click="${()=>this._addTime(5)}" ?disabled="${"idle"!==e&&!t}">${this._t("preset5m")}</button>
+              <button class="preset-btn" @click="${()=>this._addTime(10)}" ?disabled="${"idle"!==e&&!t}">${this._t("preset10m")}</button>
+              <button class="preset-btn" @click="${()=>this._addTime(30)}" ?disabled="${"idle"!==e&&!t}">${this._t("preset30m")}</button>
+            </div>
+            <div class="presets">
+              <button class="preset-btn minus" @click="${()=>this._addTime(-5)}" ?disabled="${"idle"!==e&&!t}">${this._t("presetMinus5m")}</button>
+              <button class="preset-btn minus" @click="${()=>this._addTime(-10)}" ?disabled="${"idle"!==e&&!t}">${this._t("presetMinus10m")}</button>
+              <button class="preset-btn minus" @click="${()=>this._addTime(-30)}" ?disabled="${"idle"!==e&&!t}">${this._t("presetMinus30m")}</button>
+            </div>
+          </div>
+
+          <div class="controls">
+            ${"idle"===e?L`
+              <button class="btn btn-primary start-btn" @click="${()=>this._startTimerCustom()}" ?disabled="${t}">
+                <ha-icon icon="mdi:play"></ha-icon> ${this._t("start")}
+              </button>
+            `:L`
+              ${"active"===e?L`
+                <button class="btn btn-secondary" @click="${()=>this._callService("pause")}" ?disabled="${t}">
+                  <ha-icon icon="mdi:pause"></ha-icon> ${this._t("pause")}
+                </button>
+              `:L`
+                <button class="btn btn-primary" @click="${()=>this._callService("start")}" ?disabled="${t}">
+                  <ha-icon icon="mdi:play"></ha-icon> ${this._t("resume")}
+                </button>
+              `}
+              <button class="btn btn-danger" @click="${()=>this._callService("cancel")}" ?disabled="${t}">
+                <ha-icon icon="mdi:stop"></ha-icon> ${this._t("stop")}
+              </button>
+            `}
+          </div>
+        </div>
+      </ha-card>
+    `}static{this.styles=o`
+    :host {
+      display: block;
+      --custom-primary: var(--primary-color, #03a9f4);
+      --custom-bg: var(--card-background-color, rgba(255, 255, 255, 0.05));
+      --custom-border: var(--divider-color, rgba(255, 255, 255, 0.1));
+      --custom-text: var(--primary-text-color, #ffffff);
+      --custom-secondary: var(--secondary-text-color, #a0a0a0);
+      --custom-danger: var(--error-color, #f44336);
+      --custom-active-bg: rgba(3, 169, 244, 0.15);
+      --custom-success: #4caf50;
+    }
+
+    ha-card {
+      background: var(--custom-bg);
+      border-radius: var(--ha-card-border-radius, 12px);
+      border: 1px solid var(--custom-border);
+      overflow: hidden;
+      font-family: var(--paper-font-body1_-_font-family, system-ui, -apple-system, sans-serif);
+      color: var(--custom-text);
+      position: relative;
+    }
+
+    .card-header {
+      padding: 16px 16px 8px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-header .name {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--primary-text-color, #ffffff);
+      letter-spacing: 0.1px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-right ha-icon {
+      color: var(--custom-primary);
+      --mdc-icon-size: 20px;
+      filter: drop-shadow(0 0 6px rgba(3, 169, 244, 0.4));
+    }
+
+    .state-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+    }
+
+    .state-badge.active {
+      background: var(--custom-active-bg);
+      color: var(--custom-primary);
+    }
+
+    .state-badge.paused {
+      background: rgba(255, 152, 0, 0.15);
+      color: #ff9800;
+    }
+
+    .card-content {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* === 숫자 스피너 (대기 상태) === */
+    .time-spinner-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+    }
+
+    .time-spinner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .spin-btn {
+      width: 48px;
+      height: 32px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--custom-border);
+      border-radius: 8px;
+      color: var(--custom-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      --mdc-icon-size: 20px;
+    }
+
+    .spin-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--custom-text);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .spin-btn:active {
+      transform: scale(0.92);
+      background: rgba(3, 169, 244, 0.15);
+    }
+
+    .spin-value {
+      width: 64px;
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: var(--custom-text);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      text-align: center;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      font-family: inherit;
+      padding: 4px 0;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+      -moz-appearance: textfield;
+    }
+
+    .spin-value::-webkit-outer-spin-button,
+    .spin-value::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .spin-value:focus {
+      border-color: var(--custom-primary);
+      background: rgba(3, 169, 244, 0.08);
+      box-shadow: 0 0 8px rgba(3, 169, 244, 0.2);
+    }
+
+    .spin-label {
+      font-size: 0.7rem;
+      color: var(--custom-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    .spin-separator {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--custom-secondary);
+      padding: 0 2px;
+      align-self: center;
+      margin-bottom: 24px;
+    }
+
+    /* === 타이머 표시 (동작/일시정지 상태) === */
+    .timer-display {
+      padding: 16px 0;
+    }
+
+    .timer-remaining {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .time-digit {
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--custom-text);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 1px;
+    }
+
+    .time-colon {
+      font-size: 2.4rem;
+      font-weight: 300;
+      color: var(--custom-secondary);
+      margin: 0 2px;
+    }
+
+    /* === 프로그레스 바 === */
+    .progress-bar-container {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 1s linear;
+    }
+
+    .progress-bar.active {
+      background: linear-gradient(90deg, var(--custom-primary), #29b6f6);
+      box-shadow: 0 0 8px rgba(3, 169, 244, 0.4);
+    }
+
+    .progress-bar.paused {
+      background: #ff9800;
+      box-shadow: none;
+    }
+
+    /* === 프리셋 버튼 === */
+    .presets {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .preset-btn {
+      flex: 1;
+      height: 44px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--custom-border);
+      color: var(--custom-text);
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .preset-btn:hover:not(:disabled) {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .preset-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    .preset-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    /* === 컨트롤 버튼 === */
+    .controls {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .btn {
+      flex: 1;
+      height: 48px;
+      border: none;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--custom-primary);
+      color: var(--text-primary-color, #fff);
+      box-shadow: 0 4px 12px rgba(3, 169, 244, 0.3);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: scale(0.96);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--custom-text);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-danger {
+      background: var(--custom-danger);
+      color: #fff;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #e53935;
+      box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+    }
+  `}}customElements.define("ha-custom-timer-card",ut),window.customCards=window.customCards||[],(()=>{const t=dt[lt()]??dt.en;window.customCards.push({type:"ha-custom-timer-card",name:t.cardName,preview:!0,description:t.cardDescription,documentationURL:"https://github.com/jewon-oh/schedule-ui"})})(),console.log("%c[schedule-ui] v1.4.0 loaded","color: #03a9f4; font-weight: bold; font-size: 14px;");const gt=["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];class mt extends at{static{this.properties={_config:{state:!0},_hass:{state:!1},_scheduleData:{state:!0},_activeDays:{state:!0},_blocks:{state:!0},_showCreateWizard:{state:!0},_isCreating:{state:!0},_createResult:{state:!0},_dragStartMin:{state:!0},_dragEndMin:{state:!0},_isDragging:{state:!0},_selectedBlockIdx:{state:!0},_resizingBlockIdx:{state:!0},_resizingEdge:{state:!0},_toast:{state:!0},_confirm:{state:!0}}}constructor(){super(),this._scheduleData=null;const t=0===(new Date).getDay()?6:(new Date).getDay()-1;this._activeDays=[t],this._blocks=[],this._showCreateWizard=!1,this._isCreating=!1,this._createResult=null,this._lang="en",this._isEditing=!1,this._dragStartMin=null,this._dragEndMin=null,this._isDragging=!1,this._selectedBlockIdx=null,this._resizingBlockIdx=null,this._resizingEdge=null,this._toast=null,this._confirm=null,this._toastTimer=null}_showToast(t,e=3e3){this._toastTimer&&clearTimeout(this._toastTimer),this._toast={message:t},this._toastTimer=setTimeout(()=>{this._toast=null,this._toastTimer=null},e)}_openConfirm(t,e){this._confirm={message:t,onConfirm:e}}_closeConfirm(){this._confirm=null}setConfig(t){this._config=t,this._hass&&this._loadSchedule()}set hass(t){const e=this._hass;this._hass=t;let i=!e;if(t&&t.language){const e=t.language.startsWith("ko")?"ko":"en";this._lang!==e&&(this._lang=e,i=!0)}i&&this.requestUpdate(),!e&&t&&this._config&&this._loadSchedule()}_t(t){return ct[this._lang][t]||ct.en[t]}async _loadSchedule(){if(this._hass&&this._config.entity)try{const t=await this._hass.callWS({type:"schedule/list"}),e=this._config.entity,i=e.split(".")[1];let s=i;try{const t=await this._hass.callWS({type:"config/entity_registry/get",entity_id:e});t&&t.unique_id&&(s=t.unique_id,console.log("[schedule-ui] entity registry → unique_id:",s))}catch(t){console.warn("[schedule-ui] entity registry 조회 실패, slug 사용:",i,t)}let r=t.find(t=>t.id===s);if(r||(r=t.find(t=>t.id===i)),!r){const i=this._hass.states?.[e],s=i?.attributes?.friendly_name;s&&(r=t.find(t=>t.name===s))}console.log("[schedule-ui] loadSchedule - entity:",e,"storageId:",s,"matched:",r?r.id:"NONE"),!r&&t.length>0&&console.warn("[schedule-ui] 매칭 실패! available ids:",t.map(t=>`${t.id}(${t.name})`)),r&&(this._scheduleData=r,this._hydrateFromSchedule(r))}catch(t){console.error("[schedule-ui] Failed to load schedules",t)}}_hydrateFromSchedule(t){const e=new Map,i=new Set;for(let s=0;s<gt.length;s++){const r=t[gt[s]]||[];r.length>0&&i.add(s);for(const t of r){const i=`${t.from}~${t.to}`;e.has(i)||e.set(i,{from:t.from,to:t.to})}}const s=[...e.values()].sort((t,e)=>t.from.localeCompare(e.from));if(this._blocks=s,0===i.size){const t=0===(new Date).getDay()?6:(new Date).getDay()-1;this._activeDays=[t]}else this._activeDays=[...i].sort((t,e)=>t-e)}async _updateSchedule(){if(this._hass&&this._scheduleData){this._isEditing=!0;try{const t=this._scheduleData.id,e={name:this._scheduleData.name};this._scheduleData.icon&&(e.icon=this._scheduleData.icon);const i=[...this._blocks].sort((t,e)=>t.from.localeCompare(e.from)),s=new Set(this._activeDays);for(let t=0;t<gt.length;t++)e[gt[t]]=s.has(t)?i:[];console.log("[schedule-ui] updateSchedule - schedule_id:",t,"activeDays:",this._activeDays,"blocks:",i),await this._hass.callWS({type:"schedule/update",schedule_id:t,...e}),await this._loadSchedule()}catch(t){console.error("[schedule-ui] updateSchedule FAILED:",t),this._showToast(`${this._t("saveFailed")} ${t?.message||t}`),await this._loadSchedule()}finally{this._isEditing=!1}}}_deleteBlock(t){!this._isEditing&&this._scheduleData&&this._config?.entity&&(t<0||t>=this._blocks.length||this._openConfirm(this._t("confirmDeleteBlock"),async()=>{this._closeConfirm(),this._blocks=this._blocks.filter((e,i)=>i!==t),this._selectedBlockIdx=null,await this._updateSchedule()}))}_yToMinutes(t,e){const i=t.getBoundingClientRect(),s=Math.max(0,Math.min(1,(e-i.top)/i.height)),r=15*Math.round(1440*s/15);return Math.max(0,Math.min(1440,r))}_minutesToTimeStr(t){const e=Math.max(0,Math.min(1439,t)),i=Math.floor(e/60),s=e%60;return`${String(i).padStart(2,"0")}:${String(s).padStart(2,"0")}:00`}_onBarPointerDown(t){if(this._isEditing)return;if((t.composedPath?t.composedPath():[]).some(t=>t?.classList?.contains?.("editor-block")))return;this._selectedBlockIdx=null;const e=t.currentTarget;try{e.setPointerCapture(t.pointerId)}catch(t){}const i=this._yToMinutes(e,t.clientY);this._isDragging=!0,this._dragStartMin=i,this._dragEndMin=i}_onBarPointerMove(t){this._isDragging&&(this._dragEndMin=this._yToMinutes(t.currentTarget,t.clientY))}async _onBarPointerUp(t){if(!this._isDragging)return;const e=t.currentTarget;try{e.releasePointerCapture(t.pointerId)}catch(t){}const i=Math.min(this._dragStartMin,this._dragEndMin),s=Math.max(this._dragStartMin,this._dragEndMin);this._isDragging=!1,this._dragStartMin=null,this._dragEndMin=null,s-i<15||(this._overlapsExisting(i,s)?this._showToast(this._t("blockOverlap")):(this._blocks=[...this._blocks,{from:this._minutesToTimeStr(i),to:this._minutesToTimeStr(s)}].sort((t,e)=>t.from.localeCompare(e.from)),await this._updateSchedule()))}_selectBlock(t,e){t.stopPropagation(),this._selectedBlockIdx=this._selectedBlockIdx===e?null:e}_onSelectedDeleteClick(t,e){t.stopPropagation(),this._deleteBlock(e)}_onHandlePointerDown(t,e,i){if(t.stopPropagation(),!this._isEditing){try{t.currentTarget.setPointerCapture(t.pointerId)}catch(t){}this._resizingBlockIdx=e,this._resizingEdge=i}}_onHandlePointerMove(t,e,i){if(this._resizingBlockIdx!==e||this._resizingEdge!==i)return;const s=t.currentTarget.closest(".editor-column");if(!s)return;const r=this._blocks[e];if(!r)return;const o=this._yToMinutes(s,t.clientY),a=this._timeToMinutes(r.from),n=this._timeToMinutes(r.to),c=this._blocks.filter((t,i)=>i!==e);let d=a,l=n;if("top"===i){const t=c.map(t=>this._timeToMinutes(t.to)).filter(t=>t<=n).reduce((t,e)=>Math.max(t,e),0);d=Math.max(t,Math.min(o,n-15))}else{const t=c.map(t=>this._timeToMinutes(t.from)).filter(t=>t>=a).reduce((t,e)=>Math.min(t,e),1440);l=Math.min(t,Math.max(o,a+15))}d===a&&l===n||(this._blocks=this._blocks.map((t,i)=>i===e?{from:this._minutesToTimeStr(d),to:this._minutesToTimeStr(l)}:t))}async _onHandlePointerUp(t,e,i){if(this._resizingBlockIdx===e&&this._resizingEdge===i){try{t.currentTarget.releasePointerCapture(t.pointerId)}catch(t){}this._resizingBlockIdx=null,this._resizingEdge=null,await this._updateSchedule()}}_overlapsExisting(t,e,i=-1){return this._blocks.some((s,r)=>{if(r===i)return!1;const o=this._timeToMinutes(s.from),a=this._timeToMinutes(s.to);return t<a&&e>o})}_currentDragOverlaps(){if(!this._isDragging||null===this._dragStartMin)return!1;const t=Math.min(this._dragStartMin,this._dragEndMin),e=Math.max(this._dragStartMin,this._dragEndMin);return!(e-t<15)&&this._overlapsExisting(t,e)}async _toggleActiveDay(t){if(this._isEditing)return;const e=this._activeDays.includes(t)?this._activeDays.filter(e=>e!==t):[...this._activeDays,t].sort((t,e)=>t-e);0!==e.length?(this._activeDays=e,await this._updateSchedule()):this._showToast(this._t("atLeastOneDay"))}_formatTime(t){if(!t)return"";let[e,i]=t.split(":"),s=new Date;return s.setHours(parseInt(e)),s.setMinutes(parseInt(i)),new Intl.DateTimeFormat(this._lang,{hour:"numeric",minute:"numeric",hour12:!0}).format(s)}_timeToMinutes(t){if(!t)return 0;const e=t.split(":");return 60*parseInt(e[0])+parseInt(e[1])}render(){if(!this._config)return L`<ha-card><div class="error">Not configured</div></ha-card>`;if(!this._hass)return L`
         <ha-card>
           <div class="card-header">
             <div class="name">${this._config.title||this._t("scheduleManager")}</div>
@@ -318,7 +715,7 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
           </div>
 
           <div class="day-switcher" role="group" aria-label="${this._t("activeDays")}">
-            ${ut.map((e,i)=>{const s=r.includes(i);return L`
+            ${gt.map((e,i)=>{const s=r.includes(i);return L`
                 <button type="button"
                         class="day-pill ${s?"selected":""}"
                         aria-pressed="${s}"
@@ -1103,401 +1500,4 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       font-weight: 500;
       cursor: pointer;
     }
-  `}static getConfigElement(){return document.createElement("ha-custom-schedule-card-editor")}static getStubConfig(){return{}}getCardSize(){return this._config?.entity?5:7}getGridOptions(){return{columns:12,min_rows:3}}}customElements.define("ha-custom-schedule-card",gt),window.customCards=window.customCards||[],window.customCards.push({type:"ha-custom-schedule-card",name:ct[lt()].cardName,preview:!0,description:ct[lt()].cardDescription,documentationURL:"https://github.com/jewon-oh/schedule-ui"});class mt extends at{static{this.properties={hass:{type:Object},_config:{state:!0},_now:{state:!0},_inputHours:{state:!0},_inputMinutes:{state:!0},_inputSeconds:{state:!0}}}constructor(){super(),this._now=Date.now(),this._inputHours=0,this._inputMinutes=30,this._inputSeconds=0}connectedCallback(){super.connectedCallback(),this._timerInterval=setInterval(()=>{this._now=Date.now()},1e3)}disconnectedCallback(){super.disconnectedCallback(),this._timerInterval&&clearInterval(this._timerInterval)}static getConfigElement(){return document.createElement("ha-custom-timer-card-editor")}static getStubConfig(){return{type:"custom:ha-custom-timer-card"}}setConfig(t){if(!t)throw new Error("Invalid configuration");this._config=t}get _lang(){return this.hass?.language&&this.hass.language.includes("ko")?"ko":"en"}_t(t){return dt[this._lang]?.[t]??dt.en[t]}_parseDurationToSeconds(t){if(!t)return 0;const e=t.split(":").map(Number);return 3===e.length?3600*e[0]+60*e[1]+e[2]:0}_formatSeconds(t){if(t<=0)return"00:00:00";const e=Math.floor(t/3600),i=Math.floor(t%3600/60),s=Math.floor(t%60);return`${e.toString().padStart(2,"0")}:${i.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`}_callService(t,e={}){this._config.entity&&this.hass.callService("timer",t,{entity_id:this._config.entity,...e})}_startTimerCustom(){const t=3600*this._inputHours+60*this._inputMinutes+this._inputSeconds;if(t<=0)return;const e=this._formatSeconds(t);this._callService("start",{duration:e})}_startTimerPreset(t){this._callService("start",{duration:this._formatSeconds(60*t)})}_addTime(t){let e=60*this._inputHours+this._inputMinutes+t;e<0&&(e=0),this._inputHours=Math.floor(e/60),this._inputMinutes=e%60,this._inputHours>99&&(this._inputHours=99,this._inputMinutes=59),this.requestUpdate()}_adjustTime(t,e){const i={hours:"_inputHours",minutes:"_inputMinutes",seconds:"_inputSeconds"}[t],s={hours:{min:0,max:23},minutes:{min:0,max:59},seconds:{min:0,max:59}}[t];let r=(this[i]||0)+e;r<s.min&&(r=s.max),r>s.max&&(r=s.min),this[i]=r}_onSpinInput(t,e){const i={hours:{min:0,max:23},minutes:{min:0,max:59},seconds:{min:0,max:59}}[t];let s=parseInt(e.target.value)||0;s<i.min&&(s=i.min),s>i.max&&(s=i.max),this[{hours:"_inputHours",minutes:"_inputMinutes",seconds:"_inputSeconds"}[t]]=s}render(){if(!this._config)return L`<ha-card><div class="error">Not configured</div></ha-card>`;const t=!this._config.entity;let e="idle",i=0,s=3600,r=this._config.title||this._t("defaultTitle");if(!t&&this.hass&&this.hass.states[this._config.entity]){const t=this.hass.states[this._config.entity];if(e=t.state,r=this._config.title||t.attributes.friendly_name||this._config.entity,s=this._parseDurationToSeconds(t.attributes.duration)||3600,"active"===e&&t.attributes.finishes_at){let e=Math.floor((new Date(t.attributes.finishes_at).getTime()-this._now)/1e3);void 0!==this._timeOffset&&"active"===this._lastTimerState||(this._timeOffset=Math.max(0,e-s)),i=Math.max(0,e-(this._timeOffset||0)),i=Math.min(s,i)}else"paused"===e&&t.attributes.remaining?(i=this._parseDurationToSeconds(t.attributes.remaining),this._timeOffset=void 0):"idle"===e&&(i=0,this._timeOffset=void 0);this._lastTimerState=e}else t&&(e="idle",this._inputHours=0,this._inputMinutes=30);const o=s>0?Math.max(0,Math.min(100,i/s*100)):0,a=Math.floor(i/3600),n=Math.floor(i%3600/60),c=Math.floor(i%60);return L`
-      <ha-card>
-        <div class="card-header">
-          <div class="name">${r}</div>
-          <div class="header-right">
-            ${"idle"!==e?L`
-              <span class="state-badge ${e}">${"active"===e?this._t("start"):this._t("pausedMessage")}</span>
-            `:""}
-            <ha-icon icon="${"active"===e?"mdi:timer-sand":"mdi:timer"}"></ha-icon>
-          </div>
-        </div>
-
-        <div class="card-content">
-          ${"idle"===e?L`
-            <!-- 대기 상태: 숫자 증감 입력 -->
-            <div class="time-spinner-row">
-              <div class="time-spinner">
-                <button class="spin-btn" @click="${()=>this._adjustTime("hours",1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
-                <input class="spin-value" type="number" min="0" max="23" .value="${String(this._inputHours).padStart(2,"0")}" @change="${t=>this._onSpinInput("hours",t)}" @focus="${t=>t.target.select()}">
-                <button class="spin-btn" @click="${()=>this._adjustTime("hours",-1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
-                <div class="spin-label">${this._t("hoursLabel")}</div>
-              </div>
-              <div class="spin-separator">:</div>
-              <div class="time-spinner">
-                <button class="spin-btn" @click="${()=>this._adjustTime("minutes",1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
-                <input class="spin-value" type="number" min="0" max="59" .value="${String(this._inputMinutes).padStart(2,"0")}" @change="${t=>this._onSpinInput("minutes",t)}" @focus="${t=>t.target.select()}">
-                <button class="spin-btn" @click="${()=>this._adjustTime("minutes",-1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
-                <div class="spin-label">${this._t("minutesLabel")}</div>
-              </div>
-              <div class="spin-separator">:</div>
-              <div class="time-spinner">
-                <button class="spin-btn" @click="${()=>this._adjustTime("seconds",1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
-                <input class="spin-value" type="number" min="0" max="59" .value="${String(this._inputSeconds).padStart(2,"0")}" @change="${t=>this._onSpinInput("seconds",t)}" @focus="${t=>t.target.select()}">
-                <button class="spin-btn" @click="${()=>this._adjustTime("seconds",-1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
-                <div class="spin-label">${this._t("secondsLabel")}</div>
-              </div>
-            </div>
-          `:L`
-            <!-- 동작/일시정지 상태: 남은 시간 표시 + 바 -->
-            <div class="timer-display">
-              <div class="timer-remaining">
-                <span class="time-digit">${String(a).padStart(2,"0")}</span>
-                <span class="time-colon">:</span>
-                <span class="time-digit">${String(n).padStart(2,"0")}</span>
-                <span class="time-colon">:</span>
-                <span class="time-digit">${String(c).padStart(2,"0")}</span>
-              </div>
-              <div class="timer-message" style="margin-top: 8px; font-size: 0.95rem; color: var(--custom-secondary); display: flex; justify-content: center;">
-                ${(()=>{let t=[];a>0&&t.push(a+this._t("hoursStr")),(n>0||a>0)&&t.push(n+this._t("minutesStr")),t.push(c+this._t("secondsStr"));const e=t.join(" ");return L`<span style="background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 12px;">${e} ${this._t("countdownMessage")}</span>`})()}
-              </div>
-            </div>
-            <div class="progress-bar-container">
-              <div class="progress-bar ${e}" style="width: ${o}%;"></div>
-            </div>
-          `}
-
-          <div class="presets-container" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
-            <div class="presets">
-              <button class="preset-btn" @click="${()=>this._addTime(5)}" ?disabled="${"idle"!==e&&!t}">${this._t("preset5m")}</button>
-              <button class="preset-btn" @click="${()=>this._addTime(10)}" ?disabled="${"idle"!==e&&!t}">${this._t("preset10m")}</button>
-              <button class="preset-btn" @click="${()=>this._addTime(30)}" ?disabled="${"idle"!==e&&!t}">${this._t("preset30m")}</button>
-            </div>
-            <div class="presets">
-              <button class="preset-btn minus" @click="${()=>this._addTime(-5)}" ?disabled="${"idle"!==e&&!t}">${this._t("presetMinus5m")}</button>
-              <button class="preset-btn minus" @click="${()=>this._addTime(-10)}" ?disabled="${"idle"!==e&&!t}">${this._t("presetMinus10m")}</button>
-              <button class="preset-btn minus" @click="${()=>this._addTime(-30)}" ?disabled="${"idle"!==e&&!t}">${this._t("presetMinus30m")}</button>
-            </div>
-          </div>
-
-          <div class="controls">
-            ${"idle"===e?L`
-              <button class="btn btn-primary start-btn" @click="${()=>this._startTimerCustom()}" ?disabled="${t}">
-                <ha-icon icon="mdi:play"></ha-icon> ${this._t("start")}
-              </button>
-            `:L`
-              ${"active"===e?L`
-                <button class="btn btn-secondary" @click="${()=>this._callService("pause")}" ?disabled="${t}">
-                  <ha-icon icon="mdi:pause"></ha-icon> ${this._t("pause")}
-                </button>
-              `:L`
-                <button class="btn btn-primary" @click="${()=>this._callService("start")}" ?disabled="${t}">
-                  <ha-icon icon="mdi:play"></ha-icon> ${this._t("resume")}
-                </button>
-              `}
-              <button class="btn btn-danger" @click="${()=>this._callService("cancel")}" ?disabled="${t}">
-                <ha-icon icon="mdi:stop"></ha-icon> ${this._t("stop")}
-              </button>
-            `}
-          </div>
-        </div>
-      </ha-card>
-    `}static{this.styles=o`
-    :host {
-      display: block;
-      --custom-primary: var(--primary-color, #03a9f4);
-      --custom-bg: var(--card-background-color, rgba(255, 255, 255, 0.05));
-      --custom-border: var(--divider-color, rgba(255, 255, 255, 0.1));
-      --custom-text: var(--primary-text-color, #ffffff);
-      --custom-secondary: var(--secondary-text-color, #a0a0a0);
-      --custom-danger: var(--error-color, #f44336);
-      --custom-active-bg: rgba(3, 169, 244, 0.15);
-      --custom-success: #4caf50;
-    }
-
-    ha-card {
-      background: var(--custom-bg);
-      border-radius: var(--ha-card-border-radius, 12px);
-      border: 1px solid var(--custom-border);
-      overflow: hidden;
-      font-family: var(--paper-font-body1_-_font-family, system-ui, -apple-system, sans-serif);
-      color: var(--custom-text);
-      position: relative;
-    }
-
-    .card-header {
-      padding: 16px 16px 8px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .card-header .name {
-      font-size: 1.15rem;
-      font-weight: 600;
-      color: var(--primary-text-color, #ffffff);
-      letter-spacing: 0.1px;
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .header-right ha-icon {
-      color: var(--custom-primary);
-      --mdc-icon-size: 20px;
-      filter: drop-shadow(0 0 6px rgba(3, 169, 244, 0.4));
-    }
-
-    .state-badge {
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 20px;
-      letter-spacing: 0.3px;
-    }
-
-    .state-badge.active {
-      background: var(--custom-active-bg);
-      color: var(--custom-primary);
-    }
-
-    .state-badge.paused {
-      background: rgba(255, 152, 0, 0.15);
-      color: #ff9800;
-    }
-
-    .card-content {
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-    }
-
-    /* === 숫자 스피너 (대기 상태) === */
-    .time-spinner-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 0;
-    }
-
-    .time-spinner {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .spin-btn {
-      width: 48px;
-      height: 32px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid var(--custom-border);
-      border-radius: 8px;
-      color: var(--custom-secondary);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s ease;
-      --mdc-icon-size: 20px;
-    }
-
-    .spin-btn:hover {
-      background: rgba(255, 255, 255, 0.12);
-      color: var(--custom-text);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .spin-btn:active {
-      transform: scale(0.92);
-      background: rgba(3, 169, 244, 0.15);
-    }
-
-    .spin-value {
-      width: 64px;
-      font-size: 2.4rem;
-      font-weight: 700;
-      color: var(--custom-text);
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      text-align: center;
-      line-height: 1;
-      font-variant-numeric: tabular-nums;
-      font-family: inherit;
-      padding: 4px 0;
-      outline: none;
-      transition: border-color 0.2s, background 0.2s;
-      -moz-appearance: textfield;
-    }
-
-    .spin-value::-webkit-outer-spin-button,
-    .spin-value::-webkit-inner-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-
-    .spin-value:focus {
-      border-color: var(--custom-primary);
-      background: rgba(3, 169, 244, 0.08);
-      box-shadow: 0 0 8px rgba(3, 169, 244, 0.2);
-    }
-
-    .spin-label {
-      font-size: 0.7rem;
-      color: var(--custom-secondary);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-top: 2px;
-    }
-
-    .spin-separator {
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--custom-secondary);
-      padding: 0 2px;
-      align-self: center;
-      margin-bottom: 24px;
-    }
-
-    /* === 타이머 표시 (동작/일시정지 상태) === */
-    .timer-display {
-      padding: 16px 0;
-    }
-
-    .timer-remaining {
-      display: flex;
-      align-items: baseline;
-      gap: 4px;
-    }
-
-    .time-digit {
-      font-size: 3rem;
-      font-weight: 700;
-      color: var(--custom-text);
-      font-variant-numeric: tabular-nums;
-      letter-spacing: 1px;
-    }
-
-    .time-colon {
-      font-size: 2.4rem;
-      font-weight: 300;
-      color: var(--custom-secondary);
-      margin: 0 2px;
-    }
-
-    /* === 프로그레스 바 === */
-    .progress-bar-container {
-      width: 100%;
-      height: 6px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-
-    .progress-bar {
-      height: 100%;
-      border-radius: 3px;
-      transition: width 1s linear;
-    }
-
-    .progress-bar.active {
-      background: linear-gradient(90deg, var(--custom-primary), #29b6f6);
-      box-shadow: 0 0 8px rgba(3, 169, 244, 0.4);
-    }
-
-    .progress-bar.paused {
-      background: #ff9800;
-      box-shadow: none;
-    }
-
-    /* === 프리셋 버튼 === */
-    .presets {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      width: 100%;
-    }
-
-    .preset-btn {
-      flex: 1;
-      height: 44px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--custom-border);
-      color: var(--custom-text);
-      border-radius: 12px;
-      font-size: 0.95rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .preset-btn:hover:not(:disabled) {
-      background: rgba(255,255,255,0.1);
-      border-color: rgba(255,255,255,0.2);
-    }
-
-    .preset-btn:active:not(:disabled) {
-      transform: scale(0.95);
-    }
-
-    .preset-btn:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
-    }
-
-    /* === 컨트롤 버튼 === */
-    .controls {
-      display: flex;
-      gap: 12px;
-      width: 100%;
-      justify-content: center;
-    }
-
-    .btn {
-      flex: 1;
-      height: 48px;
-      border: none;
-      border-radius: 12px;
-      font-family: inherit;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: all 0.2s ease;
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .btn-primary {
-      background: var(--custom-primary);
-      color: var(--text-primary-color, #fff);
-      box-shadow: 0 4px 12px rgba(3, 169, 244, 0.3);
-    }
-
-    .btn-primary:active:not(:disabled) {
-      transform: scale(0.96);
-    }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--custom-text);
-    }
-
-    .btn-secondary:hover:not(:disabled) {
-      background: rgba(255, 255, 255, 0.15);
-    }
-
-    .btn-danger {
-      background: var(--custom-danger);
-      color: #fff;
-    }
-
-    .btn-danger:hover:not(:disabled) {
-      background: #e53935;
-      box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
-    }
-  `}}customElements.define("ha-custom-timer-card",mt),window.customCards=window.customCards||[],(()=>{const t=dt[lt()]??dt.en;window.customCards.push({type:"ha-custom-timer-card",name:t.cardName,preview:!0,description:t.cardDescription,documentationURL:"https://github.com/jewon-oh/schedule-ui"})})();
+  `}static getConfigElement(){return document.createElement("ha-custom-schedule-card-editor")}static getStubConfig(){return{}}getCardSize(){return this._config?.entity?5:7}getGridOptions(){return{columns:12,min_rows:3}}}customElements.define("ha-custom-schedule-card",mt),window.customCards=window.customCards||[],window.customCards.push({type:"ha-custom-schedule-card",name:ct[lt()].cardName,preview:!0,description:ct[lt()].cardDescription,documentationURL:"https://github.com/jewon-oh/schedule-ui"});
