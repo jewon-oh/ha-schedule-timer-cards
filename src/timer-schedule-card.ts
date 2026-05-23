@@ -20,6 +20,6 @@ import "./cards/schedule-card.js";
 import "./cards/timer-card.js";
 
 console.log(
-  "%c[schedule-ui] v1.4.3 loaded",
+  "%c[schedule-ui] v1.4.4 loaded",
   "color: #03a9f4; font-weight: bold; font-size: 14px;",
 );
