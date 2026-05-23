@@ -74,6 +74,13 @@ class HaCustomScheduleCard extends LitElement {
     this._onDocPointerDown = (e) => {
       if (this._selectedBlockIdx === null) return;
       if (this._isDragging || this._resizingBlockIdx !== null) return;
+      // While a confirm modal is open or a save is in flight, leave the
+      // selection (and the modal) alone. On mobile (HA Companion), the
+      // capture-phase listener used to clear _selectedBlockIdx mid-tap
+      // and the resulting lit re-render swapped out the confirm button
+      // before its click event landed — so the Delete button looked
+      // unresponsive even though the modal was visible.
+      if (this._confirm || this._isEditing) return;
       const path = e.composedPath ? e.composedPath() : [];
       const keepSelection = path.some(el => {
         const cls = el?.classList;
@@ -81,7 +88,14 @@ class HaCustomScheduleCard extends LitElement {
         return cls.contains("editor-block")
           || cls.contains("block-handle")
           || cls.contains("block-delete")
-          || cls.contains("block-time-pill");
+          || cls.contains("block-time-pill")
+          // Confirm modal surfaces — guarded above as well, but kept here
+          // in case _confirm flips after the path was captured.
+          || cls.contains("confirm-overlay")
+          || cls.contains("confirm-card")
+          || cls.contains("confirm-actions")
+          || cls.contains("danger-btn")
+          || cls.contains("ghost-btn");
       });
       if (!keepSelection) this._selectedBlockIdx = null;
     };

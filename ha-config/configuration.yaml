@@ -20,7 +20,7 @@ frontend:
     # The query string is what tells the browser (HA Companion app + mobile
     # Safari especially) to re-fetch the bundle instead of serving the
     # service-worker cached copy. Bump it whenever you ship a new version.
-    - /local/timer-schedule-card.js?v=1.4.2
+    - /local/timer-schedule-card.js?v=1.4.3
 
 # Default dashboard stays in storage mode (so HA's UI editor still works for
 # scratch work). Add a dedicated yaml-mode dashboard for the plugin test bench
