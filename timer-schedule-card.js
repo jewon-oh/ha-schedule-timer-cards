@@ -715,7 +715,11 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
       background: rgba(255,255,255,0.02);
       border-radius: 6px;
       border: 1px solid rgba(255,255,255,0.06);
-      overflow: hidden;
+      /* overflow: visible — 핸들·삭제 버튼·time pill은 의도적으로 블록 모서리
+         바깥에 그려진다. hidden을 쓰면 모서리에서 잘려 사용자 메시지처럼
+         "뱃지가 프레임보다 아래에 렌더링"되는 것처럼 보인다. 블록 자체는
+         _yToMinutes()가 0–1440으로 클램프하므로 컬럼 밖으로 나갈 일 없음. */
+      overflow: visible;
       cursor: crosshair;
       touch-action: none;
       user-select: none;
@@ -750,10 +754,15 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
       transition: opacity 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
       z-index: 1;
     }
 
+    /* outline은 키보드 포커스(:focus-visible)에서만 그린다.
+       마우스/터치로 활성화한 경우에는 outline none을 유지해 sticky focus가
+       시각적으로 남지 않도록 한다. */
     .editor-block:focus-visible {
       outline: 2px solid #fff;
       outline-offset: 2px;
@@ -954,6 +963,8 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
       cursor: pointer;
       border-radius: 999px;
       border: 1px solid transparent;
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
       transition: background 0.15s ease, color 0.15s ease;
     }
 
