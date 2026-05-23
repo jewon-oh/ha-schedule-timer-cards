@@ -171,28 +171,57 @@ class HaCustomScheduleCard extends LitElement {
     }
   }
 
+  // 두 블록이 겹치는지 (touching은 겹침으로 간주하지 않음 — 17:00 끝 / 17:00 시작은 OK)
+  _blocksOverlap(a, b) {
+    return a.from < b.to && b.from < a.to;
+  }
+
+  // 정렬된 블록들에서 겹치는/맞닿은 구간들을 하나로 병합. HA schedule API는
+  // 같은 요일에 겹치는 블록을 거부하므로 hydrate 단계에서 normalize한다.
+  _mergeIntervals(blocks) {
+    const sorted = [...blocks].sort((a, b) => a.from.localeCompare(b.from));
+    const merged = [];
+    for (const b of sorted) {
+      if (merged.length === 0) { merged.push({ ...b }); continue; }
+      const last = merged[merged.length - 1];
+      if (b.from <= last.to) {
+        // 겹침 또는 인접 → 통합
+        if (b.to > last.to) last.to = b.to;
+      } else {
+        merged.push({ ...b });
+      }
+    }
+    return merged;
+  }
+
   // schedule API 응답을 카드 내부 모델(_blocks + _activeDays)로 풀어낸다.
-  // 기존 사용자 데이터가 요일별로 달랐다면 합집합으로 통일된다.
+  // 기존 사용자 데이터가 요일별로 달랐다면 합집합 후 시간 겹침은 자동 병합한다.
   _hydrateFromSchedule(match) {
-    const seen = new Map(); // key -> {from, to}
+    const rawUnion = [];
     const activeSet = new Set();
     for (let i = 0; i < WEEKDAYS.length; i++) {
       const dayBlocks = match[WEEKDAYS[i]] || [];
       if (dayBlocks.length > 0) activeSet.add(i);
       for (const b of dayBlocks) {
-        const key = `${b.from}~${b.to}`;
-        if (!seen.has(key)) seen.set(key, { from: b.from, to: b.to });
+        rawUnion.push({ from: b.from, to: b.to });
       }
     }
-    const unified = [...seen.values()].sort((a, b) => a.from.localeCompare(b.from));
-    this._blocks = unified;
+    const merged = this._mergeIntervals(rawUnion);
+    this._blocks = merged;
 
     if (activeSet.size === 0) {
-      // schedule이 비어 있으면 오늘 요일을 default active로
       const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
       this._activeDays = [todayIdx];
     } else {
       this._activeDays = [...activeSet].sort((a, b) => a - b);
+    }
+
+    // hydrate 단계에서 normalize가 발생했다는 신호: 서버의 raw 블록 합산 수와 merged 수가 다르면 사용자에게 알린다.
+    // (rawUnion의 unique 개수가 merged보다 많으면 겹침이 있었다는 뜻.)
+    const uniqueRaw = new Set(rawUnion.map(b => `${b.from}~${b.to}`)).size;
+    if (uniqueRaw > merged.length) {
+      console.warn("[schedule-ui] hydrate: merged overlapping blocks", { rawUnique: uniqueRaw, merged: merged.length });
+      // 다음 update 시점에 자동으로 정리된 데이터가 서버에 반영된다.
     }
   }
 
