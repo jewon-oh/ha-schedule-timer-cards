@@ -417,43 +417,42 @@ class HaCustomScheduleCard extends LitElement {
 
             <!-- 주간 타임라인 -->
             <div class="weekly-timeline">
-              ${WEEKDAYS.map((day, idx) => {
-                const dayBlocks = renderData ? (renderData[day] || []) : [];
-                const isSelected = this._selectedDay === idx;
-                const MINUTES_IN_DAY = 1440;
-                return html`
-                  <div class="weekly-row ${isSelected ? 'selected' : ''}" @click="${() => { this._selectedDay = idx; this._showAddForm = false; }}">
-                    <span class="weekly-day-label">${this._t("daysShort")[idx]}</span>
-                    <div class="weekly-bar">
-                      ${dayBlocks.map(block => {
-                        const startMin = this._timeToMinutes(block.from);
-                        const endMin = this._timeToMinutes(block.to);
-                        const left = (startMin / MINUTES_IN_DAY) * 100;
-                        const width = ((endMin - startMin) / MINUTES_IN_DAY) * 100;
-                        return html`
-                          <div class="timeline-block" 
-                               style="left: ${left}%; width: ${Math.max(width, 0.5)}%;"
-                               title="${this._formatTime(block.from)} ~ ${this._formatTime(block.to)}">
-                          </div>
-                        `;
-                      })}
-                      ${(() => {
-                        const now = new Date();
-                        const todayIdx = (now.getDay() + 6) % 7;
-                        if (todayIdx !== idx) return '';
-                        const nowMin = now.getHours() * 60 + now.getMinutes();
-                        const pos = (nowMin / MINUTES_IN_DAY) * 100;
-                        return html`<div class="timeline-now" style="left: ${pos}%;"></div>`;
-                      })()}
+              <div class="timeline-time-labels">
+                <span>0</span><span>6</span><span>12</span><span>18</span><span>24</span>
+              </div>
+              <div class="weekly-columns">
+                ${WEEKDAYS.map((day, idx) => {
+                  const dayBlocks = renderData ? (renderData[day] || []) : [];
+                  const isSelected = this._selectedDay === idx;
+                  const MINUTES_IN_DAY = 1440;
+                  return html`
+                    <div class="weekly-col ${isSelected ? 'selected' : ''}" @click="${() => { this._selectedDay = idx; this._showAddForm = false; }}">
+                      <div class="weekly-bar-v">
+                        ${dayBlocks.map(block => {
+                          const startMin = this._timeToMinutes(block.from);
+                          const endMin = this._timeToMinutes(block.to);
+                          const top = (startMin / MINUTES_IN_DAY) * 100;
+                          const height = ((endMin - startMin) / MINUTES_IN_DAY) * 100;
+                          return html`
+                            <div class="timeline-block-v"
+                                 style="top: ${top}%; height: ${Math.max(height, 0.5)}%;"
+                                 title="${this._formatTime(block.from)} ~ ${this._formatTime(block.to)}">
+                            </div>
+                          `;
+                        })}
+                        ${(() => {
+                          const now = new Date();
+                          const todayIdx = (now.getDay() + 6) % 7;
+                          if (todayIdx !== idx) return '';
+                          const nowMin = now.getHours() * 60 + now.getMinutes();
+                          const pos = (nowMin / MINUTES_IN_DAY) * 100;
+                          return html`<div class="timeline-now-h" style="top: ${pos}%;"></div>`;
+                        })()}
+                      </div>
+                      <span class="weekly-day-label-v">${this._t("daysShort")[idx]}</span>
                     </div>
-                  </div>
-                `;
-              })}
-              <div class="timeline-labels">
-                <span class="weekly-day-label"></span>
-                <div class="timeline-labels-inner">
-                  <span>0</span><span>6</span><span>12</span><span>18</span><span>24</span>
-                </div>
+                  `;
+                })}
               </div>
             </div>
 
@@ -875,92 +874,99 @@ class HaCustomScheduleCard extends LitElement {
 
     /* ── 주간 타임라인 ── */
     .weekly-timeline {
+      display: flex;
+      gap: 6px;
       margin-bottom: 20px;
+      height: 200px;
     }
 
-    .weekly-row {
+    .timeline-time-labels {
       display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding-bottom: 22px;
+      flex-shrink: 0;
+    }
+
+    .timeline-time-labels span {
+      font-size: 0.6rem;
+      color: var(--custom-secondary);
+      opacity: 0.6;
+      line-height: 1;
+    }
+
+    .weekly-columns {
+      display: flex;
+      flex: 1;
+      gap: 4px;
+    }
+
+    .weekly-col {
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 8px;
-      padding: 2px 0;
+      flex: 1;
+      gap: 4px;
       cursor: pointer;
       border-radius: 6px;
+      padding: 2px;
       transition: background 0.15s ease;
     }
 
-    .weekly-row:hover {
+    .weekly-col:hover {
       background: rgba(255,255,255,0.04);
     }
 
-    .weekly-row.selected {
+    .weekly-col.selected {
       background: rgba(3, 169, 244, 0.08);
     }
 
-    .weekly-row.selected .weekly-day-label {
+    .weekly-col.selected .weekly-day-label-v {
       color: var(--custom-primary);
       font-weight: 600;
     }
 
-    .weekly-day-label {
-      width: 24px;
-      font-size: 0.75rem;
-      color: var(--custom-secondary);
-      text-align: center;
-      flex-shrink: 0;
-    }
-
-    .weekly-bar {
+    .weekly-bar-v {
       position: relative;
       flex: 1;
-      height: 18px;
+      width: 100%;
       background: rgba(255,255,255,0.04);
       border-radius: 4px;
       border: 1px solid rgba(255,255,255,0.06);
       overflow: hidden;
     }
 
-    .timeline-block {
+    .timeline-block-v {
       position: absolute;
-      top: 2px;
-      bottom: 2px;
-      background: linear-gradient(135deg, var(--custom-primary), rgba(3, 169, 244, 0.6));
+      left: 2px;
+      right: 2px;
+      background: linear-gradient(180deg, var(--custom-primary), rgba(3, 169, 244, 0.6));
       border-radius: 3px;
-      min-width: 2px;
+      min-height: 2px;
       transition: opacity 0.2s ease;
     }
 
-    .timeline-block:hover {
+    .timeline-block-v:hover {
       opacity: 0.8;
       box-shadow: 0 0 6px rgba(3, 169, 244, 0.5);
     }
 
-    .timeline-now {
+    .timeline-now-h {
       position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 2px;
+      left: 0;
+      right: 0;
+      height: 2px;
       background: #ff5252;
       box-shadow: 0 0 4px rgba(255, 82, 82, 0.6);
       z-index: 1;
     }
 
-    .timeline-labels {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    .timeline-labels-inner {
-      flex: 1;
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .timeline-labels span {
-      font-size: 0.6rem;
+    .weekly-day-label-v {
+      font-size: 0.75rem;
       color: var(--custom-secondary);
-      opacity: 0.6;
+      text-align: center;
+      flex-shrink: 0;
+      line-height: 1;
     }
 
     /* ── 시간 블록 ── */
