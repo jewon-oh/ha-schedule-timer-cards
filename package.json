@@ -13,6 +13,10 @@
     "dev": "http-server . -p 8080 --silent",
     "smoke": "node scripts/smoke.js",
     "screenshot": "node scripts/run-screenshot.js",
+    "ha:up": "docker compose up -d",
+    "ha:down": "docker compose down",
+    "ha:logs": "docker compose logs -f homeassistant",
+    "ha:restart": "docker compose restart homeassistant",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

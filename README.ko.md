@@ -125,6 +125,29 @@ npm run dev        # 8080 포트 정적 서버 기동
 npm run smoke
 ```
 
+### 로컬 Home Assistant 인스턴스 (실제 테스트 권장)
+
+`dev/preview*.html`은 HA의 일부만 mock합니다. 실제 `schedule`/`timer` 헬퍼, 진짜
+`hass.callWS` API, 카드 픽커, 비주얼 에디터, 자동 생성되는 자동화 브릿지까지 — HA
+플러그인 개발자들이 보통 테스트하는 방식대로 검증하려면 Docker로 로컬 HA를 띄우세요.
+
+```bash
+npm run build       # timer-schedule-card.js 빌드 (HA 컨테이너에 volume mount됨)
+npm run ha:up       # docker compose up -d; HA가 http://localhost:8123 에서 동작
+npm run ha:logs     # HA 로그 실시간 확인
+npm run ha:down     # 컨테이너 정지·삭제
+```
+
+첫 기동 체크리스트:
+
+1. `http://localhost:8123` 접속 → onboarding 마법사 완료(계정 생성, 위치 등).
+2. **설정 → 기기 & 서비스 → 헬퍼 → 헬퍼 만들기** 에서 `Schedule` 또는 `Timer` 헬퍼 생성.
+3. 대시보드 편집 → **카드 추가** → *Schedule Card* / *Timer Card* 선택. ([ha-config/configuration.yaml](ha-config/configuration.yaml)의 `frontend.extra_module_url` 덕분에 Lovelace 리소스를 따로 등록하지 않아도 자동 로드됩니다.)
+4. 코드 수정 후 `npm run build` 또는 `npm run watch` 실행 → 브라우저 강력 새로고침(Ctrl+F5)으로 새 번들 로드.
+
+`ha-config/`는 `configuration.yaml`만 추적하고 나머지(HA DB, 인증정보 등)는 gitignore되므로
+로컬 데이터가 저장소로 새지 않습니다.
+
 스크린샷 재생성 (Playwright + 프리뷰 페이지):
 
 ```bash

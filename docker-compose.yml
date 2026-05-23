@@ -1,0 +1,29 @@
+# Local Home Assistant instance for plugin development.
+#
+# Usage:
+#   npm run build        # produces timer-schedule-card.js at repo root
+#   npm run ha:up        # starts HA at http://localhost:8123
+#   npm run watch        # rebuilds on change; browser hard-refresh picks it up
+#
+# First launch:
+#   1. Open http://localhost:8123
+#   2. Complete the onboarding wizard (account creation, location, etc.)
+#   3. Create or edit a dashboard and add the "Schedule Card" / "Timer Card"
+#      from the custom cards section. The bundle is already loaded via
+#      `frontend.extra_module_url` in ha-config/configuration.yaml — no manual
+#      Lovelace resource entry needed.
+
+services:
+  homeassistant:
+    image: homeassistant/home-assistant:stable
+    container_name: schedule-ui-ha
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+    environment:
+      - TZ=Asia/Seoul
+    volumes:
+      # Persistent HA config (storage/, *.db live here — gitignored)
+      - ./ha-config:/config
+      # The built bundle is served from /local/timer-schedule-card.js
+      - ./timer-schedule-card.js:/config/www/timer-schedule-card.js:ro

@@ -1,0 +1,26 @@
+# Minimal HA configuration for local plugin development.
+# Anything not listed here can still be set up in the UI (Settings > ...).
+
+default_config:
+
+# Auto-load the built Lovelace card on every dashboard.
+# (Equivalent to manually adding /local/timer-schedule-card.js as a
+# Lovelace resource of type "JavaScript Module".)
+frontend:
+  extra_module_url:
+    - /local/timer-schedule-card.js
+
+# Allow access from the host machine without IPv6 reverse DNS issues
+# while running with network_mode: host on Docker Desktop.
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 127.0.0.1
+    - ::1
+
+logger:
+  default: info
+  logs:
+    # Surface schedule/timer helper traffic at debug while developing
+    homeassistant.components.schedule: debug
+    homeassistant.components.timer: debug

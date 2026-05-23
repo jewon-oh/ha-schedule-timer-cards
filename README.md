@@ -125,6 +125,30 @@ Run the headless smoke test (loads both previews, asserts the cards mount and em
 npm run smoke
 ```
 
+### Local Home Assistant instance (recommended for real testing)
+
+The dev/preview HTMLs only mock a tiny slice of HA. To test the card the way HA
+plugin authors usually do — against a real `schedule`/`timer` helper, the actual
+`hass.callWS` API, the card picker, the visual editor, and the auto-created
+automation bridge — spin up a local HA in Docker:
+
+```bash
+npm run build       # produces timer-schedule-card.js (bundled into HA via volume mount)
+npm run ha:up       # docker compose up -d; HA listens on http://localhost:8123
+npm run ha:logs     # tail HA logs
+npm run ha:down     # stop and remove the container
+```
+
+First launch checklist:
+
+1. Open `http://localhost:8123`, complete the onboarding wizard.
+2. **Settings → Devices & services → Helpers → Create helper** → add a `Schedule` or `Timer` helper.
+3. Edit any dashboard → **Add Card** → pick *Schedule Card* / *Timer Card* (no manual Lovelace resource registration needed — the bundle is auto-loaded via `frontend.extra_module_url` in [ha-config/configuration.yaml](ha-config/configuration.yaml)).
+4. Rebuild (`npm run build` or `npm run watch`) and hard-refresh the browser to pick up the new bundle.
+
+`ha-config/` is gitignored except for `configuration.yaml`, so your HA database
+and credentials stay local.
+
 Regenerate screenshots (uses Playwright + the dev preview pages):
 
 ```bash

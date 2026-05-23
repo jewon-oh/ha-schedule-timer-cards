@@ -2,3 +2,8 @@ node_modules/
 .claude/
 *.log
 .DS_Store
+
+# Local HA dev environment: keep configuration.yaml, ignore everything else
+ha-config/*
+!ha-config/configuration.yaml
+!ha-config/.gitkeep
