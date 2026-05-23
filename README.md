@@ -12,10 +12,7 @@ Single JS file. UI auto-switches between English and Korean based on your Home A
 
 ## Screenshots
 
-<div align="center">
-  <img src="assets/preview.png" alt="Schedule card preview" width="45%" />
-  <img src="assets/preview-timer.png" alt="Timer card preview" width="45%" />
-</div>
+![Schedule + Timer cards on a Home Assistant dashboard](assets/dashboard.png)
 
 ## Table of Contents
 

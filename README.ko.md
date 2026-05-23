@@ -12,10 +12,7 @@
 
 ## 스크린샷
 
-<div align="center">
-  <img src="assets/preview.png" alt="스케쥴 카드 미리보기" width="45%" />
-  <img src="assets/preview-timer.png" alt="타이머 카드 미리보기" width="45%" />
-</div>
+![Schedule + Timer 카드를 Home Assistant 대시보드에서](assets/dashboard.png)
 
 ## 목차
 
