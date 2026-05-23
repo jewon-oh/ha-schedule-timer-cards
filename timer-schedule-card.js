@@ -1285,4 +1285,4 @@ const t={ko:{addBlock:"새 블록 추가",startTime:"시작 시간",endTime:"종
     .btn-danger:hover:not(:disabled) {
       background: #e53935;
     }
-  `}}customElements.define("ha-custom-timer-card",gt),window.customCards=window.customCards||[],(()=>{const t=e[i()]??e.en;window.customCards.push({type:"ha-custom-timer-card",name:t.cardName,preview:!0,description:t.cardDescription,documentationURL:"https://github.com/jewon-oh/schedule-ui"})})(),console.log("%c[schedule-ui] v1.4.4 loaded","color: #03a9f4; font-weight: bold; font-size: 14px;");
+  `}}customElements.define("ha-custom-timer-card",gt),window.customCards=window.customCards||[],(()=>{const t=e[i()]??e.en;window.customCards.push({type:"ha-custom-timer-card",name:t.cardName,preview:!0,description:t.cardDescription,documentationURL:"https://github.com/jewon-oh/schedule-ui"})})(),console.log("%c[schedule-ui] v1.4.5 loaded","color: #03a9f4; font-weight: bold; font-size: 14px;");

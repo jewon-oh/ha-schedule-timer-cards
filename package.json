@@ -1,6 +1,6 @@
 {
   "name": "schedule-ui",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "Home Assistant Lovelace custom cards for schedule and timer helpers, with auto-generated automation bridges.",
   "main": "timer-schedule-card.js",
   "type": "module",
