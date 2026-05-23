@@ -15,7 +15,6 @@
     "changelog": "npx -y git-cliff -o CHANGELOG.md",
     "changelog:preview": "npx -y git-cliff --latest --strip header",
     "screenshot": "node scripts/run-screenshot.js",
-    "screenshot:ha": "node --env-file-if-exists=.env scripts/screenshot-ha.js",
     "ha:up": "docker compose up -d",
     "ha:down": "docker compose down",
     "ha:logs": "docker compose logs -f homeassistant",

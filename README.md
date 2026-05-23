@@ -155,19 +155,6 @@ Regenerate screenshots (uses Playwright + the dev preview pages):
 npm run screenshot
 ```
 
-Capture a real HA dashboard (requires the local HA from `npm run ha:up` and
-your credentials in `.env`):
-
-```bash
-cp .env.example .env   # then fill in HA_USER / HA_PASS
-npm run screenshot:ha                       # default target: /dashboard-test/0
-npm run screenshot:ha -- /lovelace/0        # any HA path
-```
-
-`.env` is gitignored. The script signs in once, captures the full page, and
-also writes per-card files (`assets/preview.png`, `assets/preview-timer.png`)
-if it finds the elements on the page.
-
 Project layout:
 
 ```text
