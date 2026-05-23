@@ -325,7 +325,6 @@ class HaCustomTimerCard extends LitElement {
     .header-right ha-icon {
       color: var(--custom-primary);
       --mdc-icon-size: 20px;
-      filter: drop-shadow(0 0 6px rgba(3, 169, 244, 0.4));
     }
 
     .state-badge {
@@ -419,10 +418,10 @@ class HaCustomTimerCard extends LitElement {
       margin: 0;
     }
 
-    .spin-value:focus {
+    .spin-value:focus-visible {
       border-color: var(--custom-primary);
       background: rgba(3, 169, 244, 0.08);
-      box-shadow: 0 0 8px rgba(3, 169, 244, 0.2);
+      outline: none;
     }
 
     .spin-label {
@@ -484,13 +483,11 @@ class HaCustomTimerCard extends LitElement {
     }
 
     .progress-bar.active {
-      background: linear-gradient(90deg, var(--custom-primary), #29b6f6);
-      box-shadow: 0 0 8px rgba(3, 169, 244, 0.4);
+      background: var(--custom-primary);
     }
 
     .progress-bar.paused {
       background: #ff9800;
-      box-shadow: none;
     }
 
     /* === 프리셋 버튼 === */
@@ -560,7 +557,6 @@ class HaCustomTimerCard extends LitElement {
     .btn-primary {
       background: var(--custom-primary);
       color: var(--text-primary-color, #fff);
-      box-shadow: 0 4px 12px rgba(3, 169, 244, 0.3);
     }
 
     .btn-primary:active:not(:disabled) {
@@ -583,7 +579,6 @@ class HaCustomTimerCard extends LitElement {
 
     .btn-danger:hover:not(:disabled) {
       background: #e53935;
-      box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
     }
   `;
 }
