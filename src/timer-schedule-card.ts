@@ -10,49 +10,72 @@ import "./editors/timer-editor.js";
 
 
 // 파일 로드 확인용 버전 로그 (이 메시지가 콘솔에 안 보이면 구버전이 캐시된 것)
-console.log("%c[schedule-ui] v1.3.0 loaded", "color: #03a9f4; font-weight: bold; font-size: 14px;");
+console.log("%c[schedule-ui] v1.4.0 loaded", "color: #03a9f4; font-weight: bold; font-size: 14px;");
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
-// '매일(Everyday)' 가상 탭의 인덱스 상수
-const EVERYDAY_INDEX = 7;
 
 // 브릿지 자동화 ID 접두사
 const AUTOMATION_PREFIX = "schedule_bridge_";
+
+// v1.4 모델: 카드는 한 schedule을 단일 view로 다룬다.
+// - _activeDays: number[]  (0=Mon … 6=Sun) — 같은 시간 블록 세트가 적용되는 요일들
+// - _blocks    : {from,to}[] — 활성 요일들이 공유하는 단일 블록 세트
+// 저장 시 활성 요일에는 _blocks, 비활성 요일에는 빈 배열을 내려 보낸다.
 
 class HaCustomScheduleCard extends LitElement {
   static properties = {
     _config: { state: true },
     _hass: { state: false },
     _scheduleData: { state: true },
-    _selectedDay: { state: true },
+    _activeDays: { state: true },
+    _blocks: { state: true },
     _showCreateWizard: { state: true },
     _isCreating: { state: true },
     _createResult: { state: true },
-    _addFormDays: { state: true },
-    _dragDay: { state: true },
     _dragStartMin: { state: true },
     _dragEndMin: { state: true },
-    _pendingBlock: { state: true },
-    _selectedBlockKey: { state: true },
-    _resizingBlock: { state: true },
+    _isDragging: { state: true },
+    _selectedBlockIdx: { state: true },
+    _resizingBlockIdx: { state: true },
+    _resizingEdge: { state: true },
+    _toast: { state: true },
+    _confirm: { state: true },
   };
 
   constructor() {
     super();
     this._scheduleData = null;
-    this._selectedDay = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1; // 0=Mon, 6=Sun
+    const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1; // 0=Mon, 6=Sun
+    this._activeDays = [todayIdx];
+    this._blocks = [];
     this._showCreateWizard = false;
     this._isCreating = false;
-    this._createResult = null; // { success: boolean, entityId?: string, message?: string }
+    this._createResult = null;
     this._lang = "en";
     this._isEditing = false;
-    this._dragDay = null;
     this._dragStartMin = null;
     this._dragEndMin = null;
-    this._pendingBlock = null;
-    this._addFormDays = [];
-    this._selectedBlockKey = null;
-    this._resizingBlock = null;
+    this._isDragging = false;
+    this._selectedBlockIdx = null;
+    this._resizingBlockIdx = null;
+    this._resizingEdge = null;
+    this._toast = null;        // { message: string }
+    this._confirm = null;      // { message, onConfirm }
+    this._toastTimer = null;
+  }
+
+  _showToast(message, ms = 3000) {
+    if (this._toastTimer) clearTimeout(this._toastTimer);
+    this._toast = { message };
+    this._toastTimer = setTimeout(() => { this._toast = null; this._toastTimer = null; }, ms);
+  }
+
+  _openConfirm(message, onConfirm) {
+    this._confirm = { message, onConfirm };
+  }
+
+  _closeConfirm() {
+    this._confirm = null;
   }
 
   setConfig(config) {
@@ -140,50 +163,66 @@ class HaCustomScheduleCard extends LitElement {
 
       if (match) {
         this._scheduleData = match;
+        this._hydrateFromSchedule(match);
       }
     } catch (e) {
       console.error("[schedule-ui] Failed to load schedules", e);
     }
   }
 
+  // schedule API 응답을 카드 내부 모델(_blocks + _activeDays)로 풀어낸다.
+  // 기존 사용자 데이터가 요일별로 달랐다면 합집합으로 통일된다.
+  _hydrateFromSchedule(match) {
+    const seen = new Map(); // key -> {from, to}
+    const activeSet = new Set();
+    for (let i = 0; i < WEEKDAYS.length; i++) {
+      const dayBlocks = match[WEEKDAYS[i]] || [];
+      if (dayBlocks.length > 0) activeSet.add(i);
+      for (const b of dayBlocks) {
+        const key = `${b.from}~${b.to}`;
+        if (!seen.has(key)) seen.set(key, { from: b.from, to: b.to });
+      }
+    }
+    const unified = [...seen.values()].sort((a, b) => a.from.localeCompare(b.from));
+    this._blocks = unified;
+
+    if (activeSet.size === 0) {
+      // schedule이 비어 있으면 오늘 요일을 default active로
+      const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+      this._activeDays = [todayIdx];
+    } else {
+      this._activeDays = [...activeSet].sort((a, b) => a - b);
+    }
+  }
+
   async _updateSchedule() {
     if (!this._hass || !this._scheduleData) return;
     this._isEditing = true;
-    
+
     try {
       const scheduleId = this._scheduleData.id;
-      
-      // HA schedule/update 스키마에 허용된 필드만 전송 (name, icon, 요일별 시간 블록)
-      const updatePayload = {
-        name: this._scheduleData.name,
-      };
+      const updatePayload = { name: this._scheduleData.name };
+      if (this._scheduleData.icon) updatePayload.icon = this._scheduleData.icon;
 
-      // 아이콘이 있을 경우에만 포함
-      if (this._scheduleData.icon) {
-        updatePayload.icon = this._scheduleData.icon;
+      // v1.4: 활성 요일에는 unified blocks를, 비활성에는 빈 배열을 채운다.
+      const sortedBlocks = [...this._blocks].sort((a, b) => a.from.localeCompare(b.from));
+      const activeSet = new Set(this._activeDays);
+      for (let i = 0; i < WEEKDAYS.length; i++) {
+        updatePayload[WEEKDAYS[i]] = activeSet.has(i) ? sortedBlocks : [];
       }
 
-      // 요일별 시간 블록 데이터만 추출
-      for (const day of WEEKDAYS) {
-        updatePayload[day] = this._scheduleData[day] || [];
-      }
+      console.log("[schedule-ui] updateSchedule - schedule_id:", scheduleId,
+        "activeDays:", this._activeDays, "blocks:", sortedBlocks);
 
-      console.log("[schedule-ui] updateSchedule - schedule_id:", scheduleId);
-      console.log("[schedule-ui] updateSchedule - payload:", JSON.stringify(updatePayload, null, 2));
-      
-      const updated = await this._hass.callWS({
+      await this._hass.callWS({
         type: "schedule/update",
         schedule_id: scheduleId,
-        ...updatePayload
+        ...updatePayload,
       });
-      
-      console.log("[schedule-ui] updateSchedule - success:", updated);
-      
-      // 업데이트 후 최신 데이터를 다시 로드하여 동기화
       await this._loadSchedule();
     } catch (e) {
       console.error("[schedule-ui] updateSchedule FAILED:", e);
-      console.error("[schedule-ui] error details:", JSON.stringify(e, null, 2));
+      this._showToast(`${this._t("saveFailed")} ${e?.message || e}`);
       await this._loadSchedule();
     } finally {
       this._isEditing = false;
@@ -192,51 +231,15 @@ class HaCustomScheduleCard extends LitElement {
 
 
 
-  // '매일' 탭에서 7개 요일의 공통 시간 블록(교집합)을 계산하는 헬퍼
-  _getEverydayBlocks(dataObj = this._scheduleData) {
-    if (!dataObj) return [];
-    // 첫 번째 요일(월요일)의 블록 목록을 기준으로 시작
-    const baseBlocks = dataObj[WEEKDAYS[0]] || [];
-    // 기준 블록 중에서 7개 요일 모두에 존재하는 것만 필터링
-    return baseBlocks.filter(block =>
-      WEEKDAYS.every(day => {
-        const dayBlocks = dataObj[day] || [];
-        return dayBlocks.some(b => b.from === block.from && b.to === block.to);
-      })
-    );
-  }
-
-  _deleteBlock(day, targetBlock) {
+  _deleteBlock(blockIdx) {
     if (this._isEditing || !this._scheduleData || !this._config?.entity) return;
-
-    // '매일(Everyday)' 블록인지 우선 판별
-    const everydayBlocks = this._getEverydayBlocks(this._scheduleData);
-    const isTargetEveryday = everydayBlocks.some(b => b.from === targetBlock.from && b.to === targetBlock.to);
-
-    const confirmMsg = isTargetEveryday
-      ? this._t("deleteEverydayConfirm")
-      : this._t("deleteOneConfirm");
-      
-    if (!confirm(confirmMsg)) return;
-
-    const updatedData = { ...this._scheduleData };
-
-    if (isTargetEveryday) {
-      // 7개 요일 모두에 존재하는 매일 타임블록은 한 번에 삭제
-      for (const weekday of WEEKDAYS) {
-        const blocks = updatedData[weekday] || [];
-        updatedData[weekday] = blocks.filter(b => !(b.from === targetBlock.from && b.to === targetBlock.to));
-      }
-    } else {
-      // 특정 요일에만 존재할 경우 해당 요일에서만 삭제
-      if (day) {
-        const currentBlocks = updatedData[day] || [];
-        updatedData[day] = currentBlocks.filter(b => !(b.from === targetBlock.from && b.to === targetBlock.to));
-      }
-    }
-
-    this._scheduleData = updatedData;
-    this._updateSchedule();
+    if (blockIdx < 0 || blockIdx >= this._blocks.length) return;
+    this._openConfirm(this._t("confirmDeleteBlock"), async () => {
+      this._closeConfirm();
+      this._blocks = this._blocks.filter((_, i) => i !== blockIdx);
+      this._selectedBlockIdx = null;
+      await this._updateSchedule();
+    });
   }
 
   // 픽셀 Y → 분(15분 스냅)
@@ -256,171 +259,140 @@ class HaCustomScheduleCard extends LitElement {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
   }
 
-  _onBarPointerDown(e, idx) {
+  // 드래그로 새 블록 시작
+  _onBarPointerDown(e) {
     if (this._isEditing) return;
-    // 기존 블록(또는 그 핸들/라벨/삭제버튼) 클릭은 드래그 생성에서 제외
+    // 기존 블록/핸들/삭제 버튼 위에서 시작한 포인터는 새 블록 생성에서 제외
     const path = e.composedPath ? e.composedPath() : [];
-    if (path.some(el => el?.classList?.contains?.('editor-block') && !el.classList.contains('pending'))) return;
-    // 빈 공간 클릭 시 선택 해제
-    this._selectedBlockKey = null;
+    if (path.some(el => el?.classList?.contains?.('editor-block'))) return;
+    this._selectedBlockIdx = null;
     const bar = e.currentTarget;
-    try { bar.setPointerCapture(e.pointerId); } catch(_) {}
+    try { bar.setPointerCapture(e.pointerId); } catch (_) { /* noop */ }
     const min = this._yToMinutes(bar, e.clientY);
-    this._dragDay = idx;
+    this._isDragging = true;
     this._dragStartMin = min;
     this._dragEndMin = min;
-    this._selectedDay = idx;
   }
 
-  _selectBlock(e, dayStr, blockIdx) {
+  _onBarPointerMove(e) {
+    if (!this._isDragging) return;
+    this._dragEndMin = this._yToMinutes(e.currentTarget, e.clientY);
+  }
+
+  async _onBarPointerUp(e) {
+    if (!this._isDragging) return;
+    const bar = e.currentTarget;
+    try { bar.releasePointerCapture(e.pointerId); } catch (_) { /* noop */ }
+    const start = Math.min(this._dragStartMin, this._dragEndMin);
+    const end = Math.max(this._dragStartMin, this._dragEndMin);
+    this._isDragging = false;
+    this._dragStartMin = null;
+    this._dragEndMin = null;
+    if (end - start < 15) return;
+    if (this._overlapsExisting(start, end)) {
+      this._showToast(this._t("blockOverlap"));
+      return;
+    }
+    this._blocks = [...this._blocks, {
+      from: this._minutesToTimeStr(start),
+      to: this._minutesToTimeStr(end),
+    }].sort((a, b) => a.from.localeCompare(b.from));
+    await this._updateSchedule();
+  }
+
+  // 블록 선택/해제 (선택 시 핸들 + 삭제 버튼 노출)
+  _selectBlock(e, blockIdx) {
     e.stopPropagation();
-    const key = `${dayStr}-${blockIdx}`;
-    this._selectedBlockKey = this._selectedBlockKey === key ? null : key;
+    this._selectedBlockIdx = this._selectedBlockIdx === blockIdx ? null : blockIdx;
   }
 
-  _deleteSelectedBlock(e, dayStr, block) {
+  _onSelectedDeleteClick(e, blockIdx) {
     e.stopPropagation();
-    this._selectedBlockKey = null;
-    this._deleteBlock(dayStr, block);
+    this._deleteBlock(blockIdx);
   }
 
-  _onHandlePointerDown(e, dayStr, blockIdx, edge) {
+  // 블록 리사이즈 (상단/하단 핸들)
+  _onHandlePointerDown(e, blockIdx, edge) {
     e.stopPropagation();
     if (this._isEditing) return;
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch(_) {}
-    this._resizingBlock = { dayStr, blockIdx, edge };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) { /* noop */ }
+    this._resizingBlockIdx = blockIdx;
+    this._resizingEdge = edge;
   }
 
-  _onHandlePointerMove(e, dayStr, blockIdx, edge) {
-    const r = this._resizingBlock;
-    if (!r || r.dayStr !== dayStr || r.blockIdx !== blockIdx || r.edge !== edge) return;
+  _onHandlePointerMove(e, blockIdx, edge) {
+    if (this._resizingBlockIdx !== blockIdx || this._resizingEdge !== edge) return;
     const column = e.currentTarget.closest('.editor-column');
     if (!column) return;
-
-    const blocks = (this._scheduleData?.[dayStr]) || [];
-    const block = blocks[blockIdx];
+    const block = this._blocks[blockIdx];
     if (!block) return;
 
     const min = this._yToMinutes(column, e.clientY);
     const fromMin = this._timeToMinutes(block.from);
     const toMin = this._timeToMinutes(block.to);
-
-    // 다른 블록들의 경계로 클램프
-    const otherBlocks = blocks.filter((_, i) => i !== blockIdx);
+    const otherBlocks = this._blocks.filter((_, i) => i !== blockIdx);
     let newFrom = fromMin;
     let newTo = toMin;
 
     if (edge === 'top') {
-      // 이전 블록의 to보다 위로 못 감, 현재 to - 15분보다 아래로 못 감
       const prevEnd = otherBlocks
         .map(b => this._timeToMinutes(b.to))
         .filter(t => t <= toMin)
         .reduce((max, t) => Math.max(max, t), 0);
       newFrom = Math.max(prevEnd, Math.min(min, toMin - 15));
     } else {
-      // 다음 블록의 from 아래로 못 감, 현재 from + 15분보다 위로 못 감
       const nextStart = otherBlocks
         .map(b => this._timeToMinutes(b.from))
         .filter(t => t >= fromMin)
-        .reduce((min2, t) => Math.min(min2, t), 1440);
+        .reduce((m2, t) => Math.min(m2, t), 1440);
       newTo = Math.min(nextStart, Math.max(min, fromMin + 15));
     }
 
     if (newFrom === fromMin && newTo === toMin) return;
-
-    const updatedBlocks = blocks.map((b, i) => i === blockIdx
+    this._blocks = this._blocks.map((b, i) => i === blockIdx
       ? { from: this._minutesToTimeStr(newFrom), to: this._minutesToTimeStr(newTo) }
       : b);
-    this._scheduleData = { ...this._scheduleData, [dayStr]: updatedBlocks };
   }
 
-  _onHandlePointerUp(e, dayStr, blockIdx, edge) {
-    const r = this._resizingBlock;
-    if (!r || r.dayStr !== dayStr || r.blockIdx !== blockIdx || r.edge !== edge) return;
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch(_) {}
-    this._resizingBlock = null;
-    this._updateSchedule();
+  async _onHandlePointerUp(e, blockIdx, edge) {
+    if (this._resizingBlockIdx !== blockIdx || this._resizingEdge !== edge) return;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) { /* noop */ }
+    this._resizingBlockIdx = null;
+    this._resizingEdge = null;
+    await this._updateSchedule();
   }
 
-  _onBarPointerMove(e, idx) {
-    if (this._dragDay !== idx) return;
-    this._dragEndMin = this._yToMinutes(e.currentTarget, e.clientY);
-  }
-
-  _onBarPointerUp(e, idx) {
-    if (this._dragDay !== idx) return;
-    const bar = e.currentTarget;
-    try { bar.releasePointerCapture(e.pointerId); } catch(_) {}
-    const start = Math.min(this._dragStartMin, this._dragEndMin);
-    const end = Math.max(this._dragStartMin, this._dragEndMin);
-    this._dragDay = null;
-    this._dragStartMin = null;
-    this._dragEndMin = null;
-    if (end - start < 15) return;
-    if (this._overlapsExisting(idx, start, end)) {
-      console.warn("[schedule-ui] 드래그한 시간대가 기존 블록과 겹쳐 무시됨");
-      return;
-    }
-    this._pendingBlock = { startMin: start, endMin: end };
-    this._addFormDays = [idx];
-  }
-
-  // 해당 요일의 기존 블록과 시간 범위가 겹치는지 검사
-  _overlapsExisting(dayIdx, startMin, endMin) {
-    if (!this._scheduleData) return false;
-    const dayStr = WEEKDAYS[dayIdx];
-    const blocks = this._scheduleData[dayStr] || [];
-    return blocks.some(b => {
+  // unified blocks 안에서 겹침 검사 (블록 인덱스 제외 가능)
+  _overlapsExisting(startMin, endMin, excludeIdx = -1) {
+    return this._blocks.some((b, i) => {
+      if (i === excludeIdx) return false;
       const bStart = this._timeToMinutes(b.from);
       const bEnd = this._timeToMinutes(b.to);
       return startMin < bEnd && endMin > bStart;
     });
   }
 
-  // 드래그 중 겹침 여부 (UI 피드백용)
-  _currentDragOverlaps(idx) {
-    if (this._dragDay !== idx || this._dragStartMin === null) return false;
+  _currentDragOverlaps() {
+    if (!this._isDragging || this._dragStartMin === null) return false;
     const s = Math.min(this._dragStartMin, this._dragEndMin);
     const e = Math.max(this._dragStartMin, this._dragEndMin);
     if (e - s < 15) return false;
-    return this._overlapsExisting(idx, s, e);
+    return this._overlapsExisting(s, e);
   }
 
-  _togglePendingDay(idx) {
-    if (!this._pendingBlock) return;
-    this._addFormDays = this._addFormDays.includes(idx)
-      ? this._addFormDays.filter(d => d !== idx)
-      : [...this._addFormDays, idx];
-  }
-
-  _cancelPending() {
-    this._pendingBlock = null;
-    this._addFormDays = [];
-  }
-
-  async _savePending() {
-    if (!this._pendingBlock || !this._scheduleData) return;
-    if (this._addFormDays.length === 0) return;
-    const { startMin, endMin } = this._pendingBlock;
-    const conflicts = this._addFormDays.filter(d => this._overlapsExisting(d, startMin, endMin));
-    if (conflicts.length > 0) {
-      const dayLabels = conflicts.map(d => this._t("daysShort")[d]).join(", ");
-      alert(`${this._t("conflictAlert")}${dayLabels}`);
+  // day-switcher 토글 (multi-select). 최소 1개 보장.
+  async _toggleActiveDay(idx) {
+    if (this._isEditing) return;
+    const has = this._activeDays.includes(idx);
+    const next = has
+      ? this._activeDays.filter(d => d !== idx)
+      : [...this._activeDays, idx].sort((a, b) => a - b);
+    if (next.length === 0) {
+      this._showToast(this._t("atLeastOneDay"));
       return;
     }
-    const from = this._minutesToTimeStr(startMin);
-    const to = this._minutesToTimeStr(endMin);
-    const updatedData = { ...this._scheduleData };
-    for (const dayIdx of this._addFormDays) {
-      const dayStr = WEEKDAYS[dayIdx];
-      const currentBlocks = updatedData[dayStr] ? [...updatedData[dayStr]] : [];
-      currentBlocks.push({ from, to });
-      updatedData[dayStr] = currentBlocks;
-    }
-    this._scheduleData = updatedData;
-    this._pendingBlock = null;
-    this._addFormDays = [];
-    this._updateSchedule();
+    this._activeDays = next;
+    await this._updateSchedule();
   }
 
   _formatTime(timeStr) {
@@ -469,179 +441,155 @@ class HaCustomScheduleCard extends LitElement {
       `;
     }
 
+    // 엔티티 미설정 시 카드 피커 미리보기용 더미 데이터
     let isDummy = false;
-    let renderData = this._scheduleData;
+    let titleName = this._scheduleData?.name;
+    let icon = this._scheduleData?.icon;
+    let effectiveBlocks = this._blocks;
+    let effectiveActiveDays = this._activeDays;
 
-    // 엔티티가 선택되지 않은 초기 배치 상태 → 카드 피커 피드백용 더미 데이터 노출
     if (!this._config.entity) {
       isDummy = true;
-      renderData = {
-        name: this._t("scheduleManager") + this._t("previewSuffix"),
-        icon: "mdi:calendar-star",
-        monday: [{from: "09:00:00", to: "18:00:00"}],
-        tuesday: [{from: "09:00:00", to: "18:00:00"}],
-        wednesday: [{from: "09:00:00", to: "18:00:00"}],
-        thursday: [{from: "09:00:00", to: "18:00:00"}],
-        friday: [{from: "09:00:00", to: "12:00:00"}, {from: "13:00:00", to: "18:00:00"}],
-        saturday: [{from: "07:00:00", to: "09:00:00"}, {from: "20:00:00", to: "23:00:00"}],
-        sunday: [{from: "10:00:00", to: "22:00:00"}]
-      };
+      titleName = this._t("scheduleManager") + this._t("previewSuffix");
+      icon = "mdi:calendar-star";
+      effectiveBlocks = [{ from: "09:00:00", to: "18:00:00" }];
+      effectiveActiveDays = [0, 1, 2, 3, 4];
     }
 
-    const customTitle = this._config.title || (renderData ? renderData.name : this._t("scheduleManager"));
-    const isEveryday = this._selectedDay === EVERYDAY_INDEX;
-    const dayStr = isEveryday ? null : WEEKDAYS[this._selectedDay];
-    const blocks = renderData
-      ? (isEveryday ? this._getEverydayBlocks(renderData) : (renderData[dayStr] || []))
-      : [];
+    const customTitle = this._config.title || titleName || this._t("scheduleManager");
 
-    // 시작 시간 순으로 정렬
-    const sortedBlocks = [...blocks].sort((a, b) => a.from.localeCompare(b.from));
+    const MINUTES_IN_DAY = 1440;
+    const isDragging = this._isDragging;
+    const dragStart = isDragging ? Math.min(this._dragStartMin, this._dragEndMin) : 0;
+    const dragEnd = isDragging ? Math.max(this._dragStartMin, this._dragEndMin) : 0;
+    const now = new Date();
+    const todayIdx = (now.getDay() + 6) % 7;
+    const showNow = effectiveActiveDays.includes(todayIdx);
+    const nowPos = ((now.getHours() * 60 + now.getMinutes()) / MINUTES_IN_DAY) * 100;
+    const sortedBlocks = [...effectiveBlocks].sort((a, b) => a.from.localeCompare(b.from));
 
     return html`
-      <ha-card>
+      <ha-card class="${isDummy ? 'is-dummy' : ''}">
+        ${isDummy ? html`<div class="dummy-badge">${this._t("previewSuffix").trim()}</div>` : ''}
 
         <div class="card-header">
           <div class="name">${customTitle}</div>
           <div class="header-right">
-            <ha-icon icon="${renderData?.icon || 'mdi:calendar-clock'}"></ha-icon>
+            <ha-icon icon="${icon || 'mdi:calendar-clock'}"></ha-icon>
           </div>
         </div>
 
         <div class="card-content">
-            <!-- 단일 컬럼 데이 에디터 -->
-            ${(() => {
-              const MINUTES_IN_DAY = 1440;
-              const selDayStr = WEEKDAYS[this._selectedDay] || WEEKDAYS[0];
-              const selDayBlocks = renderData ? (renderData[selDayStr] || []) : [];
-              const isDragging = this._dragDay === this._selectedDay && this._dragStartMin !== null;
-              const dragStart = isDragging ? Math.min(this._dragStartMin, this._dragEndMin) : 0;
-              const dragEnd = isDragging ? Math.max(this._dragStartMin, this._dragEndMin) : 0;
-              const now = new Date();
-              const todayIdx = (now.getDay() + 6) % 7;
-              const showNow = todayIdx === this._selectedDay;
-              const nowPos = showNow ? ((now.getHours() * 60 + now.getMinutes()) / MINUTES_IN_DAY) * 100 : 0;
-              return html`
-                <div class="day-editor">
-                  <div class="day-editor-grid">
-                    <div class="hour-labels-col">
-                      ${Array.from({length: 25}, (_, h) => html`<span>${h}</span>`)}
-                    </div>
-                    <div class="editor-column"
-                         @pointerdown="${(e) => this._onBarPointerDown(e, this._selectedDay)}"
-                         @pointermove="${(e) => this._onBarPointerMove(e, this._selectedDay)}"
-                         @pointerup="${(e) => this._onBarPointerUp(e, this._selectedDay)}"
-                         @pointercancel="${(e) => this._onBarPointerUp(e, this._selectedDay)}">
-                      ${Array.from({length: 24}, (_, h) => html`
-                        <div class="hour-gridline" style="top: ${(h / 24) * 100}%;"></div>
-                      `)}
-                      ${selDayBlocks.map((block, blockIdx) => {
-                        const startMin = this._timeToMinutes(block.from);
-                        const endMin = this._timeToMinutes(block.to);
-                        const top = (startMin / MINUTES_IN_DAY) * 100;
-                        const height = ((endMin - startMin) / MINUTES_IN_DAY) * 100;
-                        const blockKey = `${selDayStr}-${blockIdx}`;
-                        const isSelectedBlock = this._selectedBlockKey === blockKey;
-                        return html`
-                          <div class="editor-block ${isSelectedBlock ? 'selected' : ''}"
-                               style="top: ${top}%; height: ${Math.max(height, 0.5)}%;"
-                               title="${this._formatTime(block.from)} ~ ${this._formatTime(block.to)}"
-                               @click="${(e) => this._selectBlock(e, selDayStr, blockIdx)}"
-                               @pointerdown="${(e) => e.stopPropagation()}">
-                            ${isSelectedBlock ? html`
-                              <span class="block-time-pill">${block.from.slice(0,5)}~${block.to.slice(0,5)}</span>
-                              <span class="block-handle handle-top"
-                                    @pointerdown="${(e) => this._onHandlePointerDown(e, selDayStr, blockIdx, 'top')}"
-                                    @pointermove="${(e) => this._onHandlePointerMove(e, selDayStr, blockIdx, 'top')}"
-                                    @pointerup="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'top')}"
-                                    @pointercancel="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'top')}"></span>
-                              <span class="block-handle handle-bottom"
-                                    @pointerdown="${(e) => this._onHandlePointerDown(e, selDayStr, blockIdx, 'bottom')}"
-                                    @pointermove="${(e) => this._onHandlePointerMove(e, selDayStr, blockIdx, 'bottom')}"
-                                    @pointerup="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'bottom')}"
-                                    @pointercancel="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'bottom')}"></span>
-                              <button class="block-delete" @click="${(e) => this._deleteSelectedBlock(e, selDayStr, block)}" title="${this._t("delete")}">
-                                <span>−</span>
-                              </button>
-                            ` : ''}
-                          </div>
-                        `;
-                      })}
-                      ${this._pendingBlock ? html`
-                        <div class="editor-block pending"
-                             style="top: ${(this._pendingBlock.startMin / MINUTES_IN_DAY) * 100}%; height: ${Math.max(((this._pendingBlock.endMin - this._pendingBlock.startMin) / MINUTES_IN_DAY) * 100, 0.5)}%;">
-                          <span class="block-time-label">${this._minutesToTimeStr(this._pendingBlock.startMin).slice(0,5)} ~ ${this._minutesToTimeStr(this._pendingBlock.endMin).slice(0,5)}</span>
-                        </div>
+          <div class="day-editor">
+            <div class="day-editor-grid">
+              <div class="hour-labels-col" aria-hidden="true">
+                ${Array.from({ length: 25 }, (_, h) => html`<span>${h}</span>`)}
+              </div>
+              <div class="editor-column"
+                   role="application"
+                   aria-label="${this._t("scheduleManager")}"
+                   @pointerdown=${this._onBarPointerDown}
+                   @pointermove=${this._onBarPointerMove}
+                   @pointerup=${this._onBarPointerUp}
+                   @pointercancel=${this._onBarPointerUp}>
+                ${Array.from({ length: 24 }, (_, h) => html`
+                  <div class="hour-gridline" style="top: ${(h / 24) * 100}%;"></div>
+                `)}
+                ${sortedBlocks.map((block, blockIdx) => {
+                  const startMin = this._timeToMinutes(block.from);
+                  const endMin = this._timeToMinutes(block.to);
+                  const top = (startMin / MINUTES_IN_DAY) * 100;
+                  const height = ((endMin - startMin) / MINUTES_IN_DAY) * 100;
+                  const isSelected = this._selectedBlockIdx === blockIdx;
+                  // top<7% 인 블록은 pill을 위가 아니라 아래로 보낸다 (잘림 방지)
+                  const pillBelow = top < 7;
+                  return html`
+                    <button type="button"
+                            class="editor-block ${isSelected ? 'selected' : ''}"
+                            style="top: ${top}%; height: ${Math.max(height, 0.5)}%;"
+                            title="${this._formatTime(block.from)} ~ ${this._formatTime(block.to)}"
+                            aria-label="${this._formatTime(block.from)} – ${this._formatTime(block.to)}"
+                            @click=${(e) => this._selectBlock(e, blockIdx)}
+                            @pointerdown=${(e) => e.stopPropagation()}>
+                      ${isSelected ? html`
+                        <span class="block-time-pill ${pillBelow ? 'below' : ''}">
+                          ${block.from.slice(0, 5)}~${block.to.slice(0, 5)}
+                        </span>
+                        <span class="block-handle handle-top"
+                              aria-label="${this._t("startTime")}"
+                              @pointerdown=${(e) => this._onHandlePointerDown(e, blockIdx, 'top')}
+                              @pointermove=${(e) => this._onHandlePointerMove(e, blockIdx, 'top')}
+                              @pointerup=${(e) => this._onHandlePointerUp(e, blockIdx, 'top')}
+                              @pointercancel=${(e) => this._onHandlePointerUp(e, blockIdx, 'top')}></span>
+                        <span class="block-handle handle-bottom"
+                              aria-label="${this._t("endTime")}"
+                              @pointerdown=${(e) => this._onHandlePointerDown(e, blockIdx, 'bottom')}
+                              @pointermove=${(e) => this._onHandlePointerMove(e, blockIdx, 'bottom')}
+                              @pointerup=${(e) => this._onHandlePointerUp(e, blockIdx, 'bottom')}
+                              @pointercancel=${(e) => this._onHandlePointerUp(e, blockIdx, 'bottom')}></span>
+                        <button type="button"
+                                class="block-delete"
+                                aria-label="${this._t("delete")}"
+                                title="${this._t("delete")}"
+                                @click=${(e) => this._onSelectedDeleteClick(e, blockIdx)}>
+                          <span aria-hidden="true">−</span>
+                        </button>
                       ` : ''}
-                      ${isDragging ? (() => {
-                        const overlaps = this._currentDragOverlaps(this._selectedDay);
-                        return html`
-                          <div class="editor-block pending dragging ${overlaps ? 'conflict' : ''}"
-                               style="top: ${(dragStart / MINUTES_IN_DAY) * 100}%; height: ${Math.max(((dragEnd - dragStart) / MINUTES_IN_DAY) * 100, 0.5)}%;">
-                            <span class="block-time-label">${overlaps ? '⚠ ' : ''}${this._minutesToTimeStr(dragStart).slice(0,5)} ~ ${this._minutesToTimeStr(dragEnd).slice(0,5)}</span>
-                          </div>
-                        `;
-                      })() : ''}
-                      ${showNow ? html`<div class="now-dot" style="top: ${nowPos}%;"></div>` : ''}
+                    </button>
+                  `;
+                })}
+                ${isDragging ? (() => {
+                  const overlaps = this._currentDragOverlaps();
+                  return html`
+                    <div class="editor-block pending dragging ${overlaps ? 'conflict' : ''}"
+                         style="top: ${(dragStart / MINUTES_IN_DAY) * 100}%; height: ${Math.max(((dragEnd - dragStart) / MINUTES_IN_DAY) * 100, 0.5)}%;">
+                      <span class="block-time-label">
+                        ${overlaps ? '⚠ ' : ''}${this._minutesToTimeStr(dragStart).slice(0, 5)} ~ ${this._minutesToTimeStr(dragEnd).slice(0, 5)}
+                      </span>
                     </div>
-                  </div>
-                </div>
-
-                ${this._pendingBlock ? html`
-                  <div class="repeat-section">
-                    <div class="repeat-label">${this._t("repeat")}</div>
-                    <div class="repeat-days">
-                      ${WEEKDAYS.map((_, i) => {
-                        const conflicts = this._overlapsExisting(i, this._pendingBlock.startMin, this._pendingBlock.endMin);
-                        const selected = this._addFormDays.includes(i);
-                        return html`
-                          <div class="repeat-pill ${selected ? 'selected' : ''} ${conflicts ? 'conflict' : ''}"
-                               title="${conflicts ? this._t("conflictWarning") : ''}"
-                               @click="${() => { if (!conflicts) this._togglePendingDay(i); }}">
-                            ${this._t("daysShort")[i]}
-                          </div>
-                        `;
-                      })}
-                    </div>
-                    <div class="repeat-actions">
-                      <button class="ghost-btn" @click="${this._cancelPending}">${this._t("cancel")}</button>
-                      <button class="primary-btn" @click="${this._savePending}" ?disabled=${this._addFormDays.length === 0 || this._isEditing}>${this._t("save")}</button>
-                    </div>
-                  </div>
-                ` : html`
-                  <div class="day-switcher">
-                    ${WEEKDAYS.map((_, i) => html`
-                      <div class="day-pill ${this._selectedDay === i ? 'selected' : ''}"
-                           @click="${() => { this._selectedDay = i; }}">
-                        ${this._t("daysShort")[i]}
-                      </div>
-                    `)}
-                  </div>
-                `}
-              `;
-            })()}
-
-            <div class="blocks-container">
-              ${sortedBlocks.length === 0 ? html`
-                <div class="empty-state">${this._t("empty")}</div>
-              ` : sortedBlocks.map((block) => {
-                const isEverydayBlock = this._getEverydayBlocks(renderData).some(b => b.from === block.from && b.to === block.to);
-                return html`
-                <div class="time-block">
-                  <div class="time-text">
-                    ${isEverydayBlock ? html`<span class="daily-badge" style="background:var(--custom-primary); color:var(--card-background-color); font-size:0.75rem; font-weight:600; padding:2px 6px; border-radius:4px; margin-right:8px;">${this._t("everyday")}</span>` : ''}
-                    <span>${this._formatTime(block.from)}</span>
-                    <span class="divider">~</span>
-                    <span>${this._formatTime(block.to)}</span>
-                  </div>
-                  <button class="icon-btn delete-btn" @click="${() => this._deleteBlock(isEveryday ? null : dayStr, block)}" ?disabled=${this._isEditing}>
-                    <ha-icon icon="mdi:trash-can-outline"></ha-icon>
-                  </button>
-                </div>
-              `})}
+                  `;
+                })() : ''}
+                ${showNow ? html`<div class="now-line" style="top: ${nowPos}%;"><span class="now-line-label">${this._minutesToTimeStr(now.getHours() * 60 + now.getMinutes()).slice(0, 5)}</span></div>` : ''}
+                ${sortedBlocks.length === 0 && !isDragging ? html`
+                  <div class="timeline-empty-hint">${this._t("empty")}</div>
+                ` : ''}
+              </div>
             </div>
+          </div>
 
+          <div class="day-switcher" role="group" aria-label="${this._t("activeDays")}">
+            ${WEEKDAYS.map((_, i) => {
+              const isActive = effectiveActiveDays.includes(i);
+              return html`
+                <button type="button"
+                        class="day-pill ${isActive ? 'selected' : ''}"
+                        aria-pressed="${isActive}"
+                        ?disabled=${isDummy || this._isEditing}
+                        @click=${() => this._toggleActiveDay(i)}>
+                  ${this._t("daysShort")[i]}
+                </button>
+              `;
+            })}
+          </div>
+          <div class="active-days-help">${this._t("activeDaysHelp")}</div>
         </div>
+
+        ${this._toast ? html`
+          <div class="toast" role="status" aria-live="polite">${this._toast.message}</div>
+        ` : ''}
+
+        ${this._confirm ? html`
+          <div class="confirm-overlay" @click=${this._closeConfirm}>
+            <div class="confirm-card" role="alertdialog" aria-modal="true" @click=${(e) => e.stopPropagation()}>
+              <div class="confirm-title">${this._t("confirmDeleteTitle")}</div>
+              <div class="confirm-body">${this._confirm.message}</div>
+              <div class="confirm-actions">
+                <button type="button" class="ghost-btn" @click=${this._closeConfirm}>${this._t("cancel")}</button>
+                <button type="button" class="danger-btn" @click=${this._confirm.onConfirm}>${this._t("delete")}</button>
+              </div>
+            </div>
+          </div>
+        ` : ''}
       </ha-card>
     `;
   }
@@ -661,14 +609,12 @@ class HaCustomScheduleCard extends LitElement {
 
     ha-card {
       background: var(--custom-bg);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border-radius: 16px;
+      border-radius: var(--ha-card-border-radius, 12px);
       border: 1px solid var(--custom-border);
       overflow: hidden;
       font-family: var(--paper-font-body1_-_font-family, system-ui, -apple-system, sans-serif);
       color: var(--custom-text);
-      transition: all 0.3s ease;
+      position: relative;
     }
 
     .card-header {
@@ -1030,11 +976,23 @@ class HaCustomScheduleCard extends LitElement {
       pointer-events: none;
     }
 
+    /* button reset for .editor-block */
+    button.editor-block {
+      appearance: none;
+      -webkit-appearance: none;
+      font: inherit;
+      color: inherit;
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: none;
+    }
+
     .editor-block {
       position: absolute;
       left: 4px;
       right: 4px;
-      background: linear-gradient(180deg, var(--custom-primary), rgba(3, 169, 244, 0.75));
+      background: var(--custom-primary);
       border-radius: 4px;
       min-height: 2px;
       display: flex;
@@ -1042,6 +1000,12 @@ class HaCustomScheduleCard extends LitElement {
       justify-content: center;
       cursor: pointer;
       transition: opacity 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+      z-index: 1;
+    }
+
+    .editor-block:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
     }
 
     .editor-block:hover:not(.pending):not(.selected) {
@@ -1070,6 +1034,13 @@ class HaCustomScheduleCard extends LitElement {
       white-space: nowrap;
       pointer-events: none;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      z-index: 100;
+    }
+
+    /* 블록이 timeline 위쪽에 있으면 pill을 블록 아래로 보낸다 (잘림 방지) */
+    .block-time-pill.below {
+      top: auto;
+      bottom: -28px;
     }
 
     .block-handle {
@@ -1080,26 +1051,22 @@ class HaCustomScheduleCard extends LitElement {
       border: 2px solid #fff;
       border-radius: 50%;
       box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-      z-index: 5;
       touch-action: none;
       cursor: ns-resize;
+      /* 핸들은 다른 요소보다 항상 위에 — 작은 블록에서 아래 블록과 겹쳐도 잡기 좋도록 */
+      z-index: 1000;
+      /* 양쪽 핸들 모두 가로 중앙 정렬 */
+      left: calc(50% - 7px);
     }
 
     .block-handle::after {
       content: "";
       position: absolute;
-      inset: -10px;
+      inset: -10px; /* 24x24 hit target */
     }
 
-    .block-handle.handle-top {
-      top: -7px;
-      left: calc(50% - 50px);
-    }
-
-    .block-handle.handle-bottom {
-      bottom: -7px;
-      right: calc(50% - 50px);
-    }
+    .block-handle.handle-top    { top: -7px; }
+    .block-handle.handle-bottom { bottom: -7px; }
 
     .block-delete {
       position: absolute;
@@ -1107,7 +1074,7 @@ class HaCustomScheduleCard extends LitElement {
       right: -10px;
       width: 22px;
       height: 22px;
-      background: #d32f2f;
+      background: var(--custom-danger);
       color: #fff;
       border: 2px solid #fff;
       border-radius: 50%;
@@ -1119,8 +1086,8 @@ class HaCustomScheduleCard extends LitElement {
       font-size: 1rem;
       line-height: 1;
       font-weight: 700;
-      z-index: 5;
       box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      z-index: 1000;
     }
 
     .block-delete:hover {
@@ -1166,17 +1133,51 @@ class HaCustomScheduleCard extends LitElement {
       white-space: nowrap;
     }
 
-    .now-dot {
+    /* 현재 시각: 점이 아니라 컬럼 전체를 가로지르는 선 + 좌측 라벨 */
+    .now-line {
       position: absolute;
-      left: 50%;
-      width: 10px;
-      height: 10px;
-      background: #ff5252;
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 6px rgba(255, 82, 82, 0.7);
-      z-index: 3;
+      left: 0;
+      right: 0;
+      height: 0;
+      border-top: 2px solid var(--custom-danger);
       pointer-events: none;
+      z-index: 6;
+    }
+    .now-line::before {
+      content: "";
+      position: absolute;
+      left: -4px;
+      top: -5px;
+      width: 8px;
+      height: 8px;
+      background: var(--custom-danger);
+      border-radius: 50%;
+    }
+    .now-line-label {
+      position: absolute;
+      right: 4px;
+      top: -10px;
+      font-size: 0.65rem;
+      color: var(--custom-danger);
+      background: var(--custom-bg);
+      padding: 0 4px;
+      border-radius: 3px;
+      font-weight: 600;
+      line-height: 1;
+    }
+
+    .timeline-empty-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--custom-secondary);
+      font-size: 0.9rem;
+      pointer-events: none;
+      opacity: 0.7;
+      padding: 0 12px;
+      text-align: center;
     }
 
     /* ── 요일 스위처 (뷰 전환) ── */
@@ -1184,108 +1185,135 @@ class HaCustomScheduleCard extends LitElement {
       display: flex;
       justify-content: space-around;
       gap: 4px;
-      margin-bottom: 16px;
+      margin-bottom: 6px;
       padding: 0 4px;
+    }
+
+    /* button reset for .day-pill */
+    button.day-pill {
+      appearance: none;
+      -webkit-appearance: none;
+      font: inherit;
+      border: none;
+      background: none;
     }
 
     .day-pill {
       flex: 1;
       text-align: center;
-      padding: 8px 0;
+      padding: 10px 0;
       font-size: 0.85rem;
       color: var(--custom-secondary);
       cursor: pointer;
       border-radius: 999px;
-      transition: all 0.15s ease;
+      transition: background 0.15s ease, color 0.15s ease;
+      border: 1px solid transparent;
     }
 
-    .day-pill:hover {
+    .day-pill:hover:not(:disabled) {
       background: rgba(255,255,255,0.04);
     }
 
     .day-pill.selected {
-      color: var(--custom-primary);
-      background: rgba(3, 169, 244, 0.12);
+      color: var(--text-primary-color, #fff);
+      background: var(--custom-primary);
       font-weight: 600;
     }
 
-    /* ── 반복 섹션 (저장 전) ── */
-    .repeat-section {
-      background: rgba(255,255,255,0.03);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-      border: 1px solid rgba(255,255,255,0.06);
+    .day-pill:focus-visible {
+      outline: 2px solid var(--custom-primary);
+      outline-offset: 2px;
     }
 
-    .repeat-label {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--primary-text-color, #fff);
-      margin-bottom: 12px;
+    .day-pill:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
     }
 
-    .repeat-days {
-      display: flex;
-      justify-content: space-between;
-      gap: 6px;
-      margin-bottom: 16px;
+    .active-days-help {
+      font-size: 0.75rem;
+      color: var(--custom-secondary);
+      opacity: 0.75;
+      text-align: center;
+      padding: 0 8px 4px;
     }
 
-    .repeat-pill {
-      flex: 1;
-      max-width: 44px;
-      aspect-ratio: 1;
+    /* 인라인 토스트 (alert 대체) */
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      background: rgba(20, 20, 20, 0.92);
+      color: #fff;
+      font-size: 0.85rem;
+      padding: 10px 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 2000;
+      animation: toastIn 0.2s ease;
+      max-width: calc(100% - 32px);
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translate(-50%, 8px); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    /* 인라인 confirm 다이얼로그 (browser confirm 대체) */
+    .confirm-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 50%;
-      font-size: 0.85rem;
+      z-index: 1500;
+      animation: fadeIn 0.15s ease;
+    }
+
+    .confirm-card {
+      background: var(--card-background-color, #2b2b2b);
+      color: var(--custom-text);
+      border-radius: 12px;
+      border: 1px solid var(--custom-border);
+      padding: 18px 20px;
+      width: min(90%, 320px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
+    .confirm-title {
+      font-size: 1rem;
       font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .confirm-body {
+      font-size: 0.9rem;
       color: var(--custom-secondary);
-      cursor: pointer;
-      border: 1.5px solid transparent;
-      transition: all 0.15s ease;
+      line-height: 1.5;
+      margin-bottom: 16px;
     }
 
-    .repeat-pill:hover {
-      background: rgba(255,255,255,0.05);
-    }
-
-    .repeat-pill.selected {
-      color: var(--custom-primary);
-      border-color: var(--custom-primary);
-    }
-
-    .repeat-actions {
+    .confirm-actions {
       display: flex;
       gap: 8px;
       justify-content: flex-end;
     }
 
-    .ghost-btn {
-      background: transparent;
-      color: var(--custom-secondary);
-      border: 1px solid var(--custom-border);
-      padding: 8px 18px;
+    .danger-btn {
+      padding: 8px 16px;
+      background: var(--custom-danger);
+      color: #fff;
+      border: none;
       border-radius: 8px;
-      cursor: pointer;
       font-size: 0.9rem;
       font-weight: 500;
+      cursor: pointer;
     }
+    .danger-btn:hover { filter: brightness(1.1); }
 
-    .ghost-btn:hover {
-      background: rgba(255,255,255,0.04);
-    }
-
-    /* ── 시간 블록 ── */
-    .blocks-container {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
+    /* ── 반복 섹션 (저장 전) ── */
     .empty-state {
       text-align: center;
       padding: 24px 0;
@@ -1293,48 +1321,18 @@ class HaCustomScheduleCard extends LitElement {
       font-size: 0.9rem;
     }
 
-    .time-block {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 16px;
-      background: rgba(0,0,0,0.15);
+    .ghost-btn {
+      background: transparent;
+      color: var(--custom-secondary);
       border: 1px solid var(--custom-border);
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      transition: opacity 0.2s ease;
-    }
-
-    .time-text {
-      font-size: 1.1rem;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .divider {
-      color: var(--custom-secondary);
-      font-weight: 300;
-    }
-
-    .icon-btn {
-      background: none;
-      border: none;
-      color: var(--custom-secondary);
+      padding: 8px 16px;
+      border-radius: 8px;
       cursor: pointer;
-      padding: 6px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
+      font-size: 0.9rem;
+      font-weight: 500;
     }
 
-    .delete-btn:hover {
-      color: var(--custom-danger);
-      background: rgba(244, 67, 54, 0.1);
-    }
+    .ghost-btn:hover { background: rgba(255,255,255,0.04); }
 
     button:disabled {
       opacity: 0.5;
@@ -1342,7 +1340,7 @@ class HaCustomScheduleCard extends LitElement {
     }
 
     .primary-btn {
-      padding: 8px 18px;
+      padding: 8px 16px;
       background: var(--custom-primary);
       color: var(--text-primary-color, #fff);
       border: none;
@@ -1350,12 +1348,6 @@ class HaCustomScheduleCard extends LitElement {
       font-size: 0.9rem;
       font-weight: 500;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(3, 169, 244, 0.3);
-      transition: transform 0.1s ease;
-    }
-
-    .primary-btn:active {
-      transform: scale(0.98);
     }
   `;
 
@@ -1694,14 +1686,12 @@ class HaCustomTimerCard extends LitElement {
 
     ha-card {
       background: var(--custom-bg);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border-radius: 16px;
+      border-radius: var(--ha-card-border-radius, 12px);
       border: 1px solid var(--custom-border);
       overflow: hidden;
       font-family: var(--paper-font-body1_-_font-family, system-ui, -apple-system, sans-serif);
       color: var(--custom-text);
-      transition: all 0.3s ease;
+      position: relative;
     }
 
     .card-header {

@@ -51,6 +51,14 @@ export const LOCALES = {
     routineSuffix: " 스케쥴",
     bridgeAliasPrefix: "스케쥴 브릿지: ",
     bridgeDescPattern: " 스케쥴에 따라 기기를 자동 제어합니다.",
+    // 활성 요일 그룹 (v1.4: 모든 블록이 활성 요일에 일괄 적용)
+    activeDays: "활성 요일",
+    activeDaysHelp: "선택한 요일들이 동일한 시간 블록 세트를 공유합니다.",
+    atLeastOneDay: "최소 한 요일은 활성화되어 있어야 합니다.",
+    confirmDeleteBlock: "이 시간 블록을 삭제하시겠습니까?",
+    confirmDeleteTitle: "시간 블록 삭제",
+    saveFailed: "저장에 실패했습니다.",
+    blockOverlap: "다른 시간 블록과 겹쳐 추가할 수 없습니다.",
   },
   en: {
     addBlock: "Add New Block",
@@ -102,6 +110,14 @@ export const LOCALES = {
     routineSuffix: " Schedule",
     bridgeAliasPrefix: "Schedule bridge: ",
     bridgeDescPattern: " — automatically controls the target device per its schedule.",
+    // Active days group (v1.4: all blocks apply uniformly to the active days)
+    activeDays: "Active days",
+    activeDaysHelp: "Selected days share the same set of time blocks.",
+    atLeastOneDay: "At least one day must stay active.",
+    confirmDeleteBlock: "Delete this time block?",
+    confirmDeleteTitle: "Delete time block",
+    saveFailed: "Failed to save schedule.",
+    blockOverlap: "This range overlaps an existing block.",
   },
 } as const;
 
