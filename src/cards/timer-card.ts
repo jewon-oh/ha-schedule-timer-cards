@@ -354,11 +354,17 @@ class HaCustomTimerCard extends LitElement {
     }
 
     /* === 숫자 스피너 (대기 상태) === */
+    /* 카드가 좁은 grid (columns: 6 = section의 절반)에 들어가도 잘리지 않도록
+       전체 row가 부모 폭을 가득 채우고, 각 스피너가 균등하게 줄어들도록 한다.
+       min-width:0 은 flex 자식이 내부 input의 고정 폭에 의해 overflow되지
+       않게 하는 트릭. */
     .time-spinner-row {
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
+      gap: 4px;
       padding: 8px 0;
+      width: 100%;
     }
 
     .time-spinner {
@@ -366,10 +372,13 @@ class HaCustomTimerCard extends LitElement {
       flex-direction: column;
       align-items: center;
       gap: 4px;
+      flex: 1 1 0;
+      min-width: 0;
     }
 
     .spin-btn {
-      width: 48px;
+      width: 100%;
+      max-width: 48px;
       height: 32px;
       background: rgba(255, 255, 255, 0.06);
       border: 1px solid var(--custom-border);
@@ -395,8 +404,10 @@ class HaCustomTimerCard extends LitElement {
     }
 
     .spin-value {
-      width: 64px;
-      font-size: 2.4rem;
+      width: 100%;
+      min-width: 0;
+      max-width: 64px;
+      font-size: clamp(1.6rem, 5vw, 2.4rem);
       font-weight: 700;
       color: var(--custom-text);
       background: transparent;
@@ -410,6 +421,7 @@ class HaCustomTimerCard extends LitElement {
       outline: none;
       transition: border-color 0.2s, background 0.2s;
       -moz-appearance: textfield;
+      box-sizing: border-box;
     }
 
     .spin-value::-webkit-outer-spin-button,
@@ -433,12 +445,13 @@ class HaCustomTimerCard extends LitElement {
     }
 
     .spin-separator {
-      font-size: 2rem;
+      font-size: clamp(1.4rem, 4vw, 2rem);
       font-weight: 700;
       color: var(--custom-secondary);
-      padding: 0 2px;
+      padding: 0;
       align-self: center;
       margin-bottom: 16px;
+      flex: 0 0 auto;
     }
 
     /* === 타이머 표시 (동작/일시정지 상태) === */

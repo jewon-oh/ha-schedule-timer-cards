@@ -364,6 +364,10 @@ class HaCustomScheduleCard extends LitElement {
   // 8px는 일반적인 click slop 보다 살짝 더 보수적인 값.
   static _TAP_SLOP = 8;
 
+  // 격자 스냅(15분) — 블록 시간은 15분 단위로 정렬된다.
+  // 최소 블록 길이(30분) — 그보다 짧게는 만들지도 줄이지도 못한다.
+  static _BLOCK_MIN_DURATION = 30;
+
   async _onColumnClick(e) {
     if (this._isEditing) return;
     // 블록/핸들/삭제 버튼/시간 pill 위에서 발생한 click 은 무시.
@@ -406,7 +410,7 @@ class HaCustomScheduleCard extends LitElement {
     if (tapMin < prevEnd) return;
     const start = Math.max(prevEnd, tapMin);
     const end = Math.min(nextStart, start + DEFAULT_LEN);
-    if (end - start < 15) {
+    if (end - start < HaCustomScheduleCard._BLOCK_MIN_DURATION) {
       this._showToast(this._t("blockOverlap"));
       return;
     }
@@ -462,13 +466,13 @@ class HaCustomScheduleCard extends LitElement {
         .map(b => this._timeToMinutes(b.to))
         .filter(t => t <= toMin)
         .reduce((max, t) => Math.max(max, t), 0);
-      newFrom = Math.max(prevEnd, Math.min(min, toMin - 15));
+      newFrom = Math.max(prevEnd, Math.min(min, toMin - HaCustomScheduleCard._BLOCK_MIN_DURATION));
     } else {
       const nextStart = otherBlocks
         .map(b => this._timeToMinutes(b.from))
         .filter(t => t >= fromMin)
         .reduce((m2, t) => Math.min(m2, t), 1440);
-      newTo = Math.min(nextStart, Math.max(min, fromMin + 15));
+      newTo = Math.min(nextStart, Math.max(min, fromMin + HaCustomScheduleCard._BLOCK_MIN_DURATION));
     }
 
     if (newFrom === fromMin && newTo === toMin) return;
@@ -919,15 +923,21 @@ class HaCustomScheduleCard extends LitElement {
       inset: -15px;
     }
 
-    .block-handle.handle-top    { top: -7px; left: -7px; }
-    .block-handle.handle-bottom { bottom: -7px; right: -7px; }
+    /* Y는 위/아래 경계선 위에 걸치도록(-7 → 핸들 중앙이 edge에 정확히 올라감).
+       X는 비대칭 — handle-top은 왼쪽 1/4, handle-bottom은 오른쪽 1/4 지점.
+       이유: 블록 높이가 작을 때 둘이 가로 같은 위치면 시각·터치 모두 겹쳐서
+       구분 안 됨. 좌·우로 어긋나게 두면 짧은 블록에서도 따로 잡힘. */
+    .block-handle.handle-top    { top: -7px; left: 25%;  transform: translateX(-50%); }
+    .block-handle.handle-bottom { bottom: -7px; right: 25%; transform: translateX(50%); }
 
-    /* 삭제 버튼: 블록 안쪽 우측 상단. 모바일 thumb-friendly 하게 30x30.
-       (좌상단 = handle-top, 우하단 = handle-bottom 이라 우상단이 비어 있음.) */
+    /* 삭제 버튼: 블록 우상단 모서리에 걸치도록 (10px outside / 20px inside).
+       core-handle(좌상단·우하단)는 블록 안쪽에 들어가 있고, 삭제만 모서리에
+       반쯤 떠 있어 시각 계층이 분리됨. ha-card overflow:hidden 에서 잘리지
+       않도록 day-editor padding(8) + card-content padding(16) 안에 들어옴. */
     .block-delete {
       position: absolute;
-      top: 4px;
-      right: 4px;
+      top: -10px;
+      right: -10px;
       width: 30px;
       height: 30px;
       background: var(--custom-danger);
