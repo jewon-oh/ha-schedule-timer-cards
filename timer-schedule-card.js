@@ -6,7 +6,7 @@ import {
 
 
 // 파일 로드 확인용 버전 로그 (이 메시지가 콘솔에 안 보이면 구버전이 캐시된 것)
-console.log("%c[schedule-ui] v1.2.9 loaded", "color: #03a9f4; font-weight: bold; font-size: 14px;");
+console.log("%c[schedule-ui] v1.3.0 loaded", "color: #03a9f4; font-weight: bold; font-size: 14px;");
 
 const LOCALES = {
   ko: {
@@ -15,12 +15,18 @@ const LOCALES = {
     endTime: "종료 시간",
     add: "시간 블록 추가하기",
     delete: "삭제",
+    cancel: "취소",
+    save: "저장",
+    repeat: "반복",
     days: ["월", "화", "수", "목", "금", "토", "일"],
     daysShort: ["월", "화", "수", "목", "금", "토", "일"],
     everyday: "매일",
     empty: "설정된 스케쥴이 없습니다.",
     errorEntity: "스케쥴 엔티티를 설정해야 합니다.",
     scheduleManager: "스케쥴 관리",
+    placeholder: "스마트 스케쥴 카드",
+    previewSuffix: " (미리보기)",
+    conflictWarning: "이 요일은 기존 블록과 겹칩니다",
     // 스케쥴 생성 마법사
     createRoutine: "새 스케쥴 만들기",
     routineName: "스케쥴 이름",
@@ -33,6 +39,26 @@ const LOCALES = {
     createDescription: "기기를 선택하면 스케쥴과 자동화가 자동으로 생성됩니다.",
     orSelectExisting: "또는 기존 스케쥴을 편집기에서 선택하세요.",
     goToCard: "카드 편집에서 새 스케쥴을 선택해주세요.",
+    // 에디터
+    editorWizardTitle: "새 스케쥴 만들기 (권장)",
+    editorWizardDesc: "자동화할 기기를 선택하면 스케쥴 제어 장치와 동작 브릿지가 즉시 생성되고 이 카드에 자동으로 연동됩니다.",
+    editorTargetDevice: "제어할 대상 기기 선택",
+    editorCreateSuccess: "생성 및 연결 성공!",
+    editorErrorPrefix: "오류 발생: ",
+    editorAdvanced: "기존 스케쥴 다시 불러오기 및 추가 설정",
+    editorScheduleEntity: "스케쥴 기기 (직접 선택)",
+    editorCardTitle: "카드 표출 제목 (선택사항)",
+    // 카드 픽커
+    cardName: "스케쥴 카드",
+    cardDescription: "스케쥴 헬퍼의 시간 블록을 편집하고, 기기를 선택하면 스케쥴을 자동 생성합니다.",
+    // 다이얼로그 / 자동 생성
+    deleteEverydayConfirm: "이 타임블록은 매일(월~일) 등록되어 있습니다.\n삭제하시면 모든 요일에서 일괄 삭제됩니다. 계속하시겠습니까?",
+    deleteOneConfirm: "선택하신 요일의 스케줄을 삭제하시겠습니까?",
+    conflictAlert: "다음 요일에 이미 겹치는 블록이 있어 저장할 수 없습니다: ",
+    unknownDevice: "알 수 없는 기기",
+    routineSuffix: " 스케쥴",
+    bridgeAliasPrefix: "스케쥴 브릿지: ",
+    bridgeDescPattern: " 스케쥴에 따라 기기를 자동 제어합니다.",
   },
   en: {
     addBlock: "Add New Block",
@@ -40,12 +66,18 @@ const LOCALES = {
     endTime: "End Time",
     add: "Add Time Block",
     delete: "Delete",
+    cancel: "Cancel",
+    save: "Save",
+    repeat: "Repeat",
     days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     daysShort: ["M", "T", "W", "T", "F", "S", "S"],
     everyday: "Daily",
     empty: "No schedules configured.",
     errorEntity: "You need to define a schedule entity.",
     scheduleManager: "Schedule Manager",
+    placeholder: "Smart Schedule Card",
+    previewSuffix: " (Preview)",
+    conflictWarning: "This day conflicts with an existing block",
     // 스케쥴 생성 마법사
     createRoutine: "Create New Routine",
     routineName: "Routine Name",
@@ -58,8 +90,34 @@ const LOCALES = {
     createDescription: "Select a device to auto-create a schedule and automation.",
     orSelectExisting: "Or select an existing schedule in the editor.",
     goToCard: "Please select the new schedule in card settings.",
+    // Editor
+    editorWizardTitle: "Create New Routine (Recommended)",
+    editorWizardDesc: "Pick a device to auto-create a schedule helper and automation bridge linked to this card.",
+    editorTargetDevice: "Target Device",
+    editorCreateSuccess: "Created and linked successfully!",
+    editorErrorPrefix: "Error: ",
+    editorAdvanced: "Advanced Configuration",
+    editorScheduleEntity: "Schedule Entity",
+    editorCardTitle: "Card Title (Optional)",
+    // Card picker
+    cardName: "Schedule Card",
+    cardDescription: "Edit schedule helper time blocks, or pick a device to auto-create one.",
+    // Dialogs / auto-create
+    deleteEverydayConfirm: "This block is registered for every day (Mon–Sun).\nDeleting will remove it from all days. Continue?",
+    deleteOneConfirm: "Delete this block from the selected day?",
+    conflictAlert: "Cannot save — the following day(s) already have overlapping blocks: ",
+    unknownDevice: "Unknown device",
+    routineSuffix: " Schedule",
+    bridgeAliasPrefix: "Schedule bridge: ",
+    bridgeDescPattern: " — automatically controls the target device per its schedule.",
   },
 };
+
+// 카드 픽커 / 정적 위치에서 사용할 언어 감지 (hass 없이도 동작)
+function detectLang() {
+  const lang = (typeof navigator !== "undefined" && navigator.language) || "en";
+  return lang.startsWith("ko") ? "ko" : "en";
+}
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 // '매일(Everyday)' 가상 탭의 인덱스 상수
@@ -263,8 +321,8 @@ class HaCustomScheduleCard extends LitElement {
     const isTargetEveryday = everydayBlocks.some(b => b.from === targetBlock.from && b.to === targetBlock.to);
 
     const confirmMsg = isTargetEveryday
-      ? "이 타임블록은 매일(월~일) 등록되어 있습니다.\\n삭제하시면 모든 요일에서 일괄 삭제됩니다. 계속하시겠습니까?"
-      : "선택하신 요일의 스케줄을 삭제하시겠습니까?";
+      ? this._t("deleteEverydayConfirm")
+      : this._t("deleteOneConfirm");
       
     if (!confirm(confirmMsg)) return;
 
@@ -454,7 +512,7 @@ class HaCustomScheduleCard extends LitElement {
     const conflicts = this._addFormDays.filter(d => this._overlapsExisting(d, startMin, endMin));
     if (conflicts.length > 0) {
       const dayLabels = conflicts.map(d => this._t("daysShort")[d]).join(", ");
-      alert(`다음 요일에 이미 겹치는 블록이 있어 저장할 수 없습니다: ${dayLabels}`);
+      alert(`${this._t("conflictAlert")}${dayLabels}`);
       return;
     }
     const from = this._minutesToTimeStr(startMin);
@@ -503,7 +561,7 @@ class HaCustomScheduleCard extends LitElement {
       return html`
         <ha-card>
           <div class="card-header">
-            <div class="name">${this._config.title || LOCALES["ko"].scheduleManager}</div>
+            <div class="name">${this._config.title || this._t("scheduleManager")}</div>
             <div class="header-right">
               <ha-icon icon="mdi:calendar-clock"></ha-icon>
             </div>
@@ -511,7 +569,7 @@ class HaCustomScheduleCard extends LitElement {
           <div class="card-content">
             <div class="empty-state">
               <ha-icon icon="mdi:calendar-plus" style="--mdc-icon-size: 48px; opacity: 0.4; margin-bottom: 12px;"></ha-icon>
-              <p style="margin: 0; color: var(--secondary-text-color, #a0a0a0);">스마트 스케쥴 카드</p>
+              <p style="margin: 0; color: var(--secondary-text-color, #a0a0a0);">${this._t("placeholder")}</p>
             </div>
           </div>
         </ha-card>
@@ -525,7 +583,7 @@ class HaCustomScheduleCard extends LitElement {
     if (!this._config.entity) {
       isDummy = true;
       renderData = {
-        name: this._t("scheduleManager") + " (미리보기)",
+        name: this._t("scheduleManager") + this._t("previewSuffix"),
         icon: "mdi:calendar-star",
         monday: [{from: "09:00:00", to: "18:00:00"}],
         tuesday: [{from: "09:00:00", to: "18:00:00"}],
@@ -609,7 +667,7 @@ class HaCustomScheduleCard extends LitElement {
                                     @pointermove="${(e) => this._onHandlePointerMove(e, selDayStr, blockIdx, 'bottom')}"
                                     @pointerup="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'bottom')}"
                                     @pointercancel="${(e) => this._onHandlePointerUp(e, selDayStr, blockIdx, 'bottom')}"></span>
-                              <button class="block-delete" @click="${(e) => this._deleteSelectedBlock(e, selDayStr, block)}" title="삭제">
+                              <button class="block-delete" @click="${(e) => this._deleteSelectedBlock(e, selDayStr, block)}" title="${this._t("delete")}">
                                 <span>−</span>
                               </button>
                             ` : ''}
@@ -638,14 +696,14 @@ class HaCustomScheduleCard extends LitElement {
 
                 ${this._pendingBlock ? html`
                   <div class="repeat-section">
-                    <div class="repeat-label">${this._t("repeat") || "반복"}</div>
+                    <div class="repeat-label">${this._t("repeat")}</div>
                     <div class="repeat-days">
                       ${WEEKDAYS.map((_, i) => {
                         const conflicts = this._overlapsExisting(i, this._pendingBlock.startMin, this._pendingBlock.endMin);
                         const selected = this._addFormDays.includes(i);
                         return html`
                           <div class="repeat-pill ${selected ? 'selected' : ''} ${conflicts ? 'conflict' : ''}"
-                               title="${conflicts ? '이 요일은 기존 블록과 겹칩니다' : ''}"
+                               title="${conflicts ? this._t("conflictWarning") : ''}"
                                @click="${() => { if (!conflicts) this._togglePendingDay(i); }}">
                             ${this._t("daysShort")[i]}
                           </div>
@@ -653,8 +711,8 @@ class HaCustomScheduleCard extends LitElement {
                       })}
                     </div>
                     <div class="repeat-actions">
-                      <button class="ghost-btn" @click="${this._cancelPending}">${this._t("cancel") || "취소"}</button>
-                      <button class="primary-btn" @click="${this._savePending}" ?disabled=${this._addFormDays.length === 0 || this._isEditing}>${this._t("save") || "저장"}</button>
+                      <button class="ghost-btn" @click="${this._cancelPending}">${this._t("cancel")}</button>
+                      <button class="primary-btn" @click="${this._savePending}" ?disabled=${this._addFormDays.length === 0 || this._isEditing}>${this._t("save")}</button>
                     </div>
                   </div>
                 ` : html`
@@ -1459,8 +1517,8 @@ class HaCustomScheduleCardEditor extends LitElement {
 
     // 기기 이름 기반으로 스케쥴 이름 자동 생성
     const entityObj = this.hass.states[targetEntityId];
-    const friendlyName = entityObj?.attributes?.friendly_name || targetEntityId.split('.')[1] || "알 수 없는 기기";
-    const routineName = `${friendlyName} 스케쥴`;
+    const friendlyName = entityObj?.attributes?.friendly_name || targetEntityId.split('.')[1] || this._t("unknownDevice");
+    const routineName = `${friendlyName}${this._t("routineSuffix")}`;
 
     this._isCreating = true;
     this._createResult = null;
@@ -1484,8 +1542,8 @@ class HaCustomScheduleCardEditor extends LitElement {
 
       const automationId = `bridge_${scheduleId}`;
       const automationPayload = {
-        alias: `스케쥴 브릿지: ${routineName}`,
-        description: `[schedule-ui] ${routineName} 스케쥴에 따라 기기를 자동 제어합니다.`,
+        alias: `${this._t("bridgeAliasPrefix")}${routineName}`,
+        description: `[schedule-ui] ${routineName}${this._t("bridgeDescPattern")}`,
         use_blueprint: {
           path: "jewon-oh/schedule-bridge-blueprint.yaml",
           input: {
@@ -1512,30 +1570,32 @@ class HaCustomScheduleCardEditor extends LitElement {
     }
   }
 
+  _t(key) {
+    const lang = this.hass?.language?.startsWith('ko') ? 'ko' : 'en';
+    return LOCALES[lang][key] || LOCALES["en"][key];
+  }
+
   render() {
     if (!this.hass || !this._config) {
       return html``;
     }
 
-    const lang = this.hass.language?.startsWith('ko') ? 'ko' : 'en';
-    const isKo = lang === 'ko';
-
     return html`
       <div class="card-config">
-        
+
         <div class="wizard-section">
           <div style="font-weight: 600; color: var(--primary-color); display: flex; align-items: center; gap: 8px;">
-            <ha-icon icon="mdi:magic-staff"></ha-icon> 
-            <span>${isKo ? '새 스케쥴 만들기 (권장)' : 'Create New Routine'}</span>
+            <ha-icon icon="mdi:magic-staff"></ha-icon>
+            <span>${this._t("editorWizardTitle")}</span>
           </div>
           <p style="font-size: 0.85rem; color: var(--secondary-text-color); margin: 8px 0 16px 0; line-height: 1.4;">
-            ${isKo ? '자동화할 기기를 선택하면 스케쥴 제어 장치와 동작 브릿지가 즉시 생성되고 이 카드에 자동으로 연동됩니다.' : 'Pick a device to auto-create a schedule helper and automation bridge.'}
+            ${this._t("editorWizardDesc")}
           </p>
 
           ${this._isCreating ? html`
             <div style="text-align: center; padding: 20px; color: var(--primary-color);">
               <ha-icon icon="mdi:loading" class="spin"></ha-icon>
-              <span style="margin-left: 8px;">${isKo ? '생성 중...' : 'Creating...'}</span>
+              <span style="margin-left: 8px;">${this._t("creating")}</span>
             </div>
           ` : html`
             <ha-selector
@@ -1543,7 +1603,7 @@ class HaCustomScheduleCardEditor extends LitElement {
               .selector=${{ entity: { domain: ["switch", "light", "fan", "climate", "cover"] } }}
               .value=${""}
               .required=${false}
-              .label=${isKo ? '제어할 대상 기기 선택' : 'Target Device'}
+              .label=${this._t("editorTargetDevice")}
               @value-changed=${this._onAutoCreateDevicePicker}
             ></ha-selector>
           `}
@@ -1551,12 +1611,12 @@ class HaCustomScheduleCardEditor extends LitElement {
           ${this._createResult?.success ? html`
             <div style="margin-top: 12px; color: var(--success-color, #4caf50); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
               <ha-icon icon="mdi:check-circle" style="--mdc-icon-size: 18px;"></ha-icon>
-              <span>${this._createResult.entityId} 생성 및 연결 성공!</span>
+              <span>${this._createResult.entityId} ${this._t("editorCreateSuccess")}</span>
             </div>
           ` : ''}
           ${this._createResult && !this._createResult.success ? html`
             <div style="margin-top: 12px; color: var(--error-color, #f44336); font-size: 0.9rem;">
-              오류 발생: ${this._createResult.message}
+              ${this._t("editorErrorPrefix")}${this._createResult.message}
             </div>
           ` : ''}
         </div>
@@ -1564,7 +1624,7 @@ class HaCustomScheduleCardEditor extends LitElement {
         <div style="height: 1px; background: var(--divider-color, rgba(100,100,100,0.2)); margin: 24px 0;"></div>
 
         <div style="font-weight: 600; margin-bottom: 16px; color: var(--primary-text-color);">
-          ${isKo ? '기존 스케쥴 다시 불러오기 및 추가 설정' : 'Advanced Configuration'}
+          ${this._t("editorAdvanced")}
         </div>
 
         <ha-selector
@@ -1572,14 +1632,14 @@ class HaCustomScheduleCardEditor extends LitElement {
           .selector=${{ entity: { domain: "schedule" } }}
           .value=${this._config.entity || ""}
           .required=${false}
-          .label=${isKo ? '스케쥴 기기 (직접 선택)' : 'Schedule Entity'}
+          .label=${this._t("editorScheduleEntity")}
           @value-changed=${this._entityChanged}
         ></ha-selector>
 
         <br/>
 
         <ha-textfield
-          label="${isKo ? '카드 표출 제목 (선택사항)' : 'Card Title (Optional)'}"
+          label="${this._t("editorCardTitle")}"
           .value=${this._config.title || ""}
           @input=${this._titleChanged}
           style="width: 100%;"
@@ -1641,9 +1701,9 @@ customElements.define("ha-custom-schedule-card", HaCustomScheduleCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "ha-custom-schedule-card",
-  name: "스케쥴 카드",
+  name: LOCALES[detectLang()].cardName,
   preview: true,
-  description: "스케쥴 헬퍼의 시간 블록을 편집하고, 기기를 선택하면 스케쥴을 자동 생성합니다.",
+  description: LOCALES[detectLang()].cardDescription,
   documentationURL: "https://github.com/jewon-oh/schedule-ui",
 });
 
@@ -1674,9 +1734,23 @@ const KO_TRANSLATION = {
   editorActionOn: "장치 켜기",
   editorActionToggle: "상태 반전",
   editorCreateStr: "타이머 자동 생성",
+  hoursLabel: "시간",
+  minutesLabel: "분",
+  secondsLabel: "초",
   hoursStr: "시간",
   minutesStr: "분",
-  secondsStr: "초"
+  secondsStr: "초",
+  countdownMessage: "후에 기기가 종료됩니다.",
+  bridgeDescription: "Timer UI 카드에서 자동으로 생성한 브릿지입니다.",
+  errorPrefix: "생성 중 오류가 발생했습니다: ",
+  timerSuffix: " 타이머",
+  cardName: "타이머 카드",
+  cardDescription: "타이머 헬퍼를 제어하고, 기기를 선택하면 자동화 브릿지를 자동 생성합니다.",
+  defaultTitle: "타이머 설정",
+  helperFailMsg: "(안내) 타이머 헬퍼 생성 실패. 해당 HA 버전에서는 플러그인이 헬퍼를 완전 자동 생성할 수 없습니다. 수동 구성 권장.",
+  timerBridgeAliasPrefix: "타이머 브릿지: ",
+  syncingMessage: "동기화 중입니다...",
+  generatedTimerLabel: " (생성된 타이머)"
 };
 
 const EN_TRANSLATION = {
@@ -1704,9 +1778,23 @@ const EN_TRANSLATION = {
   editorActionOn: "Turn On",
   editorActionToggle: "Toggle",
   editorCreateStr: "Auto Create Timer",
+  hoursLabel: "Hours",
+  minutesLabel: "Minutes",
+  secondsLabel: "Seconds",
   hoursStr: "h",
   minutesStr: "m",
-  secondsStr: "s"
+  secondsStr: "s",
+  countdownMessage: "until the device turns off.",
+  bridgeDescription: "Bridge automatically created by Timer UI card.",
+  errorPrefix: "Error while creating: ",
+  timerSuffix: " Timer",
+  cardName: "Timer Card",
+  cardDescription: "Control timer helpers, or pick a device to auto-create an automation bridge.",
+  defaultTitle: "Timer Settings",
+  helperFailMsg: "(Notice) Timer helper auto-create failed. This HA version does not allow plugins to create helpers automatically — please configure manually.",
+  timerBridgeAliasPrefix: "Timer bridge: ",
+  syncingMessage: "Syncing...",
+  generatedTimerLabel: " (generated)"
 };
 
 // ==========================================
@@ -1847,7 +1935,7 @@ class HaCustomTimerCard extends LitElement {
     let state = "idle";
     let remainingSec = 0;
     let totalDurationSec = 3600;
-    let customTitle = this._config.title || "타이머 설정";
+    let customTitle = this._config.title || this._t("defaultTitle");
 
     if (!isDummy && this.hass && this.hass.states[this._config.entity]) {
       const stateObj = this.hass.states[this._config.entity];
@@ -1908,21 +1996,21 @@ class HaCustomTimerCard extends LitElement {
                 <button class="spin-btn" @click="${() => this._adjustTime('hours', 1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
                 <input class="spin-value" type="number" min="0" max="23" .value="${String(this._inputHours).padStart(2, '0')}" @change="${e => this._onSpinInput('hours', e)}" @focus="${e => e.target.select()}">
                 <button class="spin-btn" @click="${() => this._adjustTime('hours', -1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
-                <div class="spin-label">시간</div>
+                <div class="spin-label">${this._t("hoursLabel")}</div>
               </div>
               <div class="spin-separator">:</div>
               <div class="time-spinner">
                 <button class="spin-btn" @click="${() => this._adjustTime('minutes', 1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
                 <input class="spin-value" type="number" min="0" max="59" .value="${String(this._inputMinutes).padStart(2, '0')}" @change="${e => this._onSpinInput('minutes', e)}" @focus="${e => e.target.select()}">
                 <button class="spin-btn" @click="${() => this._adjustTime('minutes', -1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
-                <div class="spin-label">분</div>
+                <div class="spin-label">${this._t("minutesLabel")}</div>
               </div>
               <div class="spin-separator">:</div>
               <div class="time-spinner">
                 <button class="spin-btn" @click="${() => this._adjustTime('seconds', 1)}"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
                 <input class="spin-value" type="number" min="0" max="59" .value="${String(this._inputSeconds).padStart(2, '0')}" @change="${e => this._onSpinInput('seconds', e)}" @focus="${e => e.target.select()}">
                 <button class="spin-btn" @click="${() => this._adjustTime('seconds', -1)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
-                <div class="spin-label">초</div>
+                <div class="spin-label">${this._t("secondsLabel")}</div>
               </div>
             </div>
           ` : html`
@@ -1942,7 +2030,7 @@ class HaCustomTimerCard extends LitElement {
                   if(m > 0 || h > 0) timeArr.push(m + this._t("minutesStr"));
                   timeArr.push(s + this._t("secondsStr"));
                   const remainStr = timeArr.join(' ');
-                  return html`<span style="background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 12px;">${remainStr} 후에 기기가 종료됩니다.</span>`;
+                  return html`<span style="background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 12px;">${remainStr} ${this._t("countdownMessage")}</span>`;
                 })()}
               </div>
             </div>
@@ -2348,7 +2436,7 @@ class HaCustomTimerCardEditor extends LitElement {
       try {
         const payload = {
           type: "timer/create",
-          name: `${entityName} 타이머`,
+          name: `${entityName}${this._t("timerSuffix")}`,
           icon: "mdi:timer-sand"
         };
         const timerResult = await this.hass.callWS(payload);
@@ -2357,7 +2445,7 @@ class HaCustomTimerCardEditor extends LitElement {
         console.log("[schedule-ui] timer helper create SUCCESS:", timerEntityId);
       } catch (e) {
         console.warn("Timer helper auto-creation failed via config/timer/create. Error:", e);
-        this._creationError = `(안내) 타이머 헬퍼 생성 실패. 해당 HA 버전에서는 플러그인이 헬퍼를 완전 자동 생성할 수 없습니다. 수동 구성 권장.`;
+        this._creationError = this._t("helperFailMsg");
         this._isLoading = false;
         return;
       }
@@ -2365,7 +2453,7 @@ class HaCustomTimerCardEditor extends LitElement {
       // Step B: 블루프린트 참조 방식으로 자동화 브릿지 생성
       const actionType = this._selectedAction || "turn_off";
       const bridgeId = `timer_bridge_${timerId}`;
-      const alias = `타이머 브릿지: ${entityName}`;
+      const alias = `${this._t("timerBridgeAliasPrefix")}${entityName}`;
       
       console.log("[schedule-ui] Creating timer bridge (blueprint):", bridgeId, "for target:", targetEntityId);
 
@@ -2381,7 +2469,7 @@ class HaCustomTimerCardEditor extends LitElement {
       // 블루프린트 참조 형식 — HA '사용중' 카운트에 반영됨
       const bridgePayload = {
         alias: alias,
-        description: "Timer UI 카드에서 자동으로 생성한 브릿지입니다.",
+        description: this._t("bridgeDescription"),
         use_blueprint: {
           path: "jewon-oh/timer-bridge-blueprint.yaml",
           input: {
@@ -2399,7 +2487,7 @@ class HaCustomTimerCardEditor extends LitElement {
       this._config = {
         ...this._config,
         entity: timerEntityId,
-        title: `${entityName} 타이머`
+        title: `${entityName}${this._t("timerSuffix")}`
       };
 
       // 설정 이벤트 발송 (HA UI에 저장 트리거)
@@ -2411,7 +2499,7 @@ class HaCustomTimerCardEditor extends LitElement {
       
     } catch (e) {
       console.error(e);
-      this._creationError = `생성 중 오류가 발생했습니다: ${e.message}`;
+      this._creationError = `${this._t("errorPrefix")}${e.message}`;
     } finally {
       this._isLoading = false;
     }
@@ -2462,7 +2550,7 @@ class HaCustomTimerCardEditor extends LitElement {
         ${this._isLoading ? html`
           <div class="status-msg info">
             <ha-icon icon="mdi:loading" class="spin"></ha-icon>
-            동기화 중입니다... 
+            ${this._t("syncingMessage")}
           </div>
         ` : ""}
 
@@ -2477,7 +2565,7 @@ class HaCustomTimerCardEditor extends LitElement {
         <hr class="divider" />
         
         <div class="wizard-field">
-          <label>${this._t("editorEntity")} (생성된 타이머)</label>
+          <label>${this._t("editorEntity")}${this._t("generatedTimerLabel")}</label>
           <ha-entity-picker
             .hass=${this.hass}
             .value=${this._config.entity}
@@ -2582,10 +2670,13 @@ class HaCustomTimerCardEditor extends LitElement {
 }
 customElements.define("ha-custom-timer-card-editor", HaCustomTimerCardEditor);
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "ha-custom-timer-card",
-  name: "타이머 카드",
-  preview: true,
-  description: "타이머 헬퍼를 제어하고, 기기를 선택하면 자동화 브릿지를 자동 생성합니다.",
-  documentationURL: "https://github.com/jewon-oh/schedule-ui",
-});
+(() => {
+  const t = (detectLang() === "ko") ? KO_TRANSLATION : EN_TRANSLATION;
+  window.customCards.push({
+    type: "ha-custom-timer-card",
+    name: t.cardName,
+    preview: true,
+    description: t.cardDescription,
+    documentationURL: "https://github.com/jewon-oh/schedule-ui",
+  });
+})();
