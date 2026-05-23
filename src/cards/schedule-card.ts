@@ -48,6 +48,7 @@ class HaCustomScheduleCard extends LitElement {
     this._confirm = null;      // { message, onConfirm }
     this._toastTimer = null;
     this._saveTimer = null;    // debounced _updateSchedule
+    this._tapStart = null;     // 탭/드래그 구분용 pointerdown 좌표
   }
 
   // 빠른 연속 토글(예: 월·화·수 켜기)에서 매번 서버 왕복하지 않도록
@@ -338,6 +339,31 @@ class HaCustomScheduleCard extends LitElement {
   // 빈 영역 클릭 한 번으로 기본 60분 블록 생성. 모바일에서 드래그-생성이
   // 페이지 스크롤과 충돌해 답답하다는 피드백으로 단순 탭 방식으로 전환.
   // 만든 블록은 자동 선택되어 즉시 핸들로 길이 조정 가능.
+  //
+  // pointerdown 위치를 기억해 두고, click 시점에 그 위치로부터 임계치 이상
+  // 움직였다면(=드래그였다면) 무시한다. 사용자가 스크롤할 의도였거나, 살짝
+  // 끌었다 놓은 케이스에서 의도치 않은 블록 생성을 방지.
+  _onColumnPointerDown(e) {
+    const path = e.composedPath ? e.composedPath() : [e.target];
+    const onBlockPart = path.some(el => {
+      const cls = el?.classList;
+      if (!cls) return false;
+      return cls.contains('editor-block')
+        || cls.contains('block-handle')
+        || cls.contains('block-delete')
+        || cls.contains('block-time-pill');
+    });
+    if (onBlockPart) {
+      this._tapStart = null;
+      return;
+    }
+    this._tapStart = { x: e.clientX, y: e.clientY };
+  }
+
+  // pointerdown이 빈 영역에서 시작하지 않았거나, 거리 임계치를 넘으면 click 무시.
+  // 8px는 일반적인 click slop 보다 살짝 더 보수적인 값.
+  static _TAP_SLOP = 8;
+
   async _onColumnClick(e) {
     if (this._isEditing) return;
     // 블록/핸들/삭제 버튼/시간 pill 위에서 발생한 click 은 무시.
@@ -352,6 +378,14 @@ class HaCustomScheduleCard extends LitElement {
         || cls.contains('block-time-pill');
     });
     if (onBlockPart) return;
+
+    // 드래그였으면 생성하지 않는다. tapStart가 없으면 이 click의 pointerdown이
+    // 빈 영역에서 시작하지 않았다는 뜻 — 역시 무시.
+    const tapStart = this._tapStart;
+    this._tapStart = null;
+    if (!tapStart) return;
+    const slop = HaCustomScheduleCard._TAP_SLOP;
+    if (Math.abs(e.clientX - tapStart.x) > slop || Math.abs(e.clientY - tapStart.y) > slop) return;
 
     const column = e.currentTarget;
     const tapMin = this._yToMinutes(column, e.clientY);
@@ -567,6 +601,8 @@ class HaCustomScheduleCard extends LitElement {
               <div class="editor-column"
                    role="application"
                    aria-label="${this._t("scheduleManager")}"
+                   @pointerdown=${this._onColumnPointerDown}
+                   @pointercancel=${() => { this._tapStart = null; }}
                    @click=${this._onColumnClick}>
                 ${Array.from({ length: 24 }, (_, h) => html`
                   <div class="hour-gridline" style="top: ${(h / 24) * 100}%;"></div>
