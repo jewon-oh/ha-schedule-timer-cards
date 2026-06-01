@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question / discussion
+    url: https://github.com/jewon-oh/ha-schedule-timer-cards/discussions
+    about: Usage questions, setup help, or ideas you want to discuss first. Open a bug report only when something is clearly wrong.
+  - name: Home Assistant Community Forum
+    url: https://community.home-assistant.io/
+    about: General Home Assistant questions (not specific to this card) are better answered there.
