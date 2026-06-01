@@ -7,12 +7,34 @@ import { TURN_ON_LOCALES, detectLang } from "../locales/index.js";
 // (0..6) is what UI buttons map to.
 const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
-// Self-tag we drop into the automation `description` so the editor can list
-// only turn-on automations created by this card and distinguish them from
-// arbitrary user automations.
-const AUTOMATION_TAG = "[schedule-ui:turn-on]";
+// Per-mode constants. The same card class drives both ha-custom-turn-on-card
+// and ha-custom-turn-off-card (the subclass below); these tables keep all
+// per-mode knobs (service name, automation-description tag, icon) in one
+// place so a future "toggle" mode would only need a third row.
+const SERVICE_BY_MODE = {
+  turn_on: "homeassistant.turn_on",
+  turn_off: "homeassistant.turn_off",
+};
+const TAG_BY_MODE = {
+  turn_on: "[schedule-ui:turn-on]",
+  turn_off: "[schedule-ui:turn-off]",
+};
+const ICON_BY_MODE = {
+  turn_on: "mdi:power-plug-outline",
+  turn_off: "mdi:power-plug-off-outline",
+};
+
+// Kept exported under its historical name; callers (the editor) only used
+// it as the tag for the default turn_on path.
+const AUTOMATION_TAG = TAG_BY_MODE.turn_on;
 
 class HaCustomTurnOnCard extends LitElement {
+  // Default action mode for this concrete element class. The turn-off
+  // subclass below overrides this; user config (`action_mode`) takes
+  // precedence over both. Reading via `this.constructor.defaultActionMode`
+  // means a subclass switches its identity just by setting this one prop.
+  static defaultActionMode = "turn_on";
+
   static properties = {
     _config: { state: true },
     _hass: { state: false },
@@ -25,6 +47,27 @@ class HaCustomTurnOnCard extends LitElement {
     _toast: { state: true },
     _confirm: { state: true },
   };
+
+  // Resolution order: explicit config > class-level default. Reads through
+  // the live `_config` so a user editing action_mode in the visual editor
+  // flips the card without a reload.
+  get _actionMode() {
+    const fromConfig = this._config?.action_mode;
+    if (fromConfig === "turn_on" || fromConfig === "turn_off") return fromConfig;
+    return this.constructor.defaultActionMode || "turn_on";
+  }
+
+  // Pick a mode-suffixed locale key when the underlying string varies per
+  // mode (titles, suffixes, wizard copy) and fall back to the base key
+  // for mode-agnostic strings (dialog text, weekday labels, …).
+  _modeKey(base) {
+    const mode = this._actionMode;
+    const suffix = mode === "turn_off" ? "TurnOff" : "TurnOn";
+    return `${base}${suffix}`;
+  }
+  _tm(base) {
+    return this._t(this._modeKey(base));
+  }
 
   constructor() {
     super();
@@ -132,12 +175,16 @@ class HaCustomTurnOnCard extends LitElement {
   // legacy prefix at load time, rewrite the alias once so HA's automations
   // list and the card header end up consistent. User-customized aliases
   // (anything not matching the exact legacy prefix) are left alone.
+  // Only the turn_on mode ever shipped under the legacy prefix scheme — the
+  // turn_off card type was introduced in v1.6.0, after the suffix form was
+  // already standard — so we skip this entirely in turn_off mode.
   async _maybeMigrateLegacyAlias() {
+    if (this._actionMode !== "turn_on") return;
     const cfg = this._automationConfig;
     if (!cfg || !this._automationId || !this._hass) return;
     const alias = typeof cfg.alias === "string" ? cfg.alias : "";
     const legacyPairs = [
-      { prefix: "켜기 스케쥴: ", suffix: " 켜기 스케쥴" },
+      { prefix: "켜기 스케쥴: ", suffix: " 켜기 예약" },
       { prefix: "Turn-on schedule: ", suffix: " Turn-On Schedule" },
     ];
     for (const { prefix, suffix } of legacyPairs) {
@@ -188,19 +235,40 @@ class HaCustomTurnOnCard extends LitElement {
     // No condition? Then the automation fires every day.
     this._weekdays = weekdays && weekdays.length > 0 ? weekdays : [...WEEKDAYS];
 
-    // Extract the target entity_id from the first homeassistant.turn_on action.
+    // Extract the target entity_id from the first action whose service
+    // matches the current mode (homeassistant.turn_on for turn_on mode,
+    // homeassistant.turn_off for turn_off mode). Loaders that picked the
+    // wrong mode would otherwise see no target and start showing the
+    // "automation not found" toast even when the automation is valid.
     const actions = Array.isArray(cfg?.action) ? cfg.action
       : (Array.isArray(cfg?.actions) ? cfg.actions : []);
+    const expectedSuffix = `.${this._actionMode}`;
     let target = null;
     for (const a of actions) {
       const svc = a?.service || a?.action;
-      if (typeof svc === "string" && svc.endsWith(".turn_on")) {
+      if (typeof svc === "string" && svc.endsWith(expectedSuffix)) {
         target = a?.target?.entity_id
           || a?.data?.entity_id
           || a?.entity_id
           || null;
         if (Array.isArray(target)) target = target[0];
         if (target) break;
+      }
+    }
+    // Fallback: if the automation was created for the *other* mode (e.g.
+    // user manually toggled action_mode in YAML), still pull the target so
+    // the card can offer to save and overwrite the service on next edit.
+    if (!target) {
+      for (const a of actions) {
+        const svc = a?.service || a?.action;
+        if (typeof svc === "string" && (svc.endsWith(".turn_on") || svc.endsWith(".turn_off"))) {
+          target = a?.target?.entity_id
+            || a?.data?.entity_id
+            || a?.entity_id
+            || null;
+          if (Array.isArray(target)) target = target[0];
+          if (target) break;
+        }
       }
     }
     this._target = target;
@@ -239,7 +307,7 @@ class HaCustomTurnOnCard extends LitElement {
         ? [] // all 7 days → no condition needed
         : [{ condition: "time", weekday: [...this._weekdays].sort((a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b)) }];
       const action = [{
-        service: "homeassistant.turn_on",
+        service: SERVICE_BY_MODE[this._actionMode] || SERVICE_BY_MODE.turn_on,
         target: { entity_id: this._target },
       }];
 
@@ -338,17 +406,19 @@ class HaCustomTurnOnCard extends LitElement {
   render() {
     if (!this._config) return html`<ha-card><div class="error">${this._t("notConfigured")}</div></ha-card>`;
 
+    const headerIcon = ICON_BY_MODE[this._actionMode] || ICON_BY_MODE.turn_on;
+
     // Preview / pre-hass state
     if (!this._hass) {
       return html`
         <ha-card>
           <div class="card-header">
-            <div class="name">${this._config.title || this._t("title")}</div>
-            <div class="header-right"><ha-icon icon="mdi:power-plug-outline"></ha-icon></div>
+            <div class="name">${this._config.title || this._tm("title")}</div>
+            <div class="header-right"><ha-icon icon="${headerIcon}"></ha-icon></div>
           </div>
           <div class="card-content">
             <div class="empty-state">
-              <ha-icon icon="mdi:lightbulb-on-outline" style="--mdc-icon-size: 48px; opacity: 0.4;"></ha-icon>
+              <ha-icon icon="${headerIcon}" style="--mdc-icon-size: 48px; opacity: 0.4;"></ha-icon>
               <p>${this._t("placeholder")}</p>
             </div>
           </div>
@@ -365,12 +435,12 @@ class HaCustomTurnOnCard extends LitElement {
     // schedule/timer cards' "<device> 스케쥴" / "<device> 타이머" pattern.
     const aliasName = this._automationConfig?.alias;
     const builtName = this._target
-      ? `${this._targetFriendlyName()}${this._t("routineSuffix")}`
+      ? `${this._targetFriendlyName()}${this._tm("routineSuffix")}`
       : null;
     const titleText = this._config.title
       || aliasName
       || builtName
-      || this._t("title");
+      || this._tm("title");
 
     // When dummy, show fake data so the picker preview isn't empty.
     const times = isDummy ? ["08:00:00", "18:30:00"] : this._times;
@@ -384,7 +454,7 @@ class HaCustomTurnOnCard extends LitElement {
         <div class="card-header">
           <div class="name">${titleText}</div>
           <div class="header-right">
-            <ha-icon icon="mdi:power-plug-outline"></ha-icon>
+            <ha-icon icon="${headerIcon}"></ha-icon>
           </div>
         </div>
 
@@ -401,7 +471,7 @@ class HaCustomTurnOnCard extends LitElement {
 
             <div class="times-section">
               <div class="section-label">
-                <span>${this._t("times")}</span>
+                <span>${this._tm("times")}</span>
                 <button type="button" class="add-btn"
                         ?disabled=${isDummy}
                         @click=${this._addTime}
@@ -451,7 +521,7 @@ class HaCustomTurnOnCard extends LitElement {
                 `;
               })}
             </div>
-            <div class="days-help">${this._t("daysHelp")}</div>
+            <div class="days-help">${this._tm("daysHelp")}</div>
           `}
         </div>
 
@@ -780,16 +850,35 @@ class HaCustomTurnOnCard extends LitElement {
   }
 }
 
+// Turn-off variant: shares the entire class above. The only difference is
+// the default action mode (used when the user-supplied config omits
+// `action_mode`) and the stub the picker drops in for fresh inserts.
+class HaCustomTurnOffCard extends HaCustomTurnOnCard {
+  static defaultActionMode = "turn_off";
+  static getStubConfig() {
+    return { action_mode: "turn_off" };
+  }
+}
+
 customElements.define("ha-custom-turn-on-card", HaCustomTurnOnCard);
+customElements.define("ha-custom-turn-off-card", HaCustomTurnOffCard);
 
 window.customCards = window.customCards || [];
+const _lang = detectLang();
 window.customCards.push({
   type: "ha-custom-turn-on-card",
-  name: TURN_ON_LOCALES[detectLang()].cardName,
+  name: TURN_ON_LOCALES[_lang].cardNameTurnOn,
   preview: true,
-  description: TURN_ON_LOCALES[detectLang()].cardDescription,
+  description: TURN_ON_LOCALES[_lang].cardDescriptionTurnOn,
+  documentationURL: "https://github.com/jewon-oh/schedule-ui",
+});
+window.customCards.push({
+  type: "ha-custom-turn-off-card",
+  name: TURN_ON_LOCALES[_lang].cardNameTurnOff,
+  preview: true,
+  description: TURN_ON_LOCALES[_lang].cardDescriptionTurnOff,
   documentationURL: "https://github.com/jewon-oh/schedule-ui",
 });
 
-// Export the constant if other modules want it (e.g., editor for tag matching).
-export { AUTOMATION_TAG };
+// Export the constants if other modules want them (e.g., editor for tag matching).
+export { AUTOMATION_TAG, TAG_BY_MODE, SERVICE_BY_MODE };
