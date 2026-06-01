@@ -16,3 +16,7 @@ ha-config/blueprints/automation/*
 !ha-config/blueprints/automation/jewon-oh/
 !ha-config/dashboards/
 !ha-config/dashboards/**
+
+# Local dashboard transform backups (scripts/*-ui.js write these before edits)
+ha_dashboard.yaml.bak
+ha_dashboard.yaml.before-*
