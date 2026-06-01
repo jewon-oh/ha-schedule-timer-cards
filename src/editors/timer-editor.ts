@@ -92,11 +92,16 @@ class HaCustomTimerCardEditor extends LitElement {
       await this.hass.callApi("POST", `config/automation/config/${bridgeId}`, bridgePayload);
       console.log("[schedule-ui] timer automation bridge (blueprint) create SUCCESS:", bridgeId);
 
-      // 설정 임시 업데이트
+      // 설정 임시 업데이트.
+      // target_entity / bridge / action_type 는 카드의 켜기·끄기 라디오가
+      // 기기 상태로 기본값을 정하고, 종료 동작을 브릿지에 되쓰기 위해 필요.
       this._config = {
         ...this._config,
         entity: timerEntityId,
-        title: `${entityName}${this._t("timerSuffix")}`
+        title: `${entityName}${this._t("timerSuffix")}`,
+        target_entity: targetEntityId,
+        bridge: bridgeId,
+        action_type: actionType
       };
 
       // 설정 이벤트 발송 (HA UI에 저장 트리거)
