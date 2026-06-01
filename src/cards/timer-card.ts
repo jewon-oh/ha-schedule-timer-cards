@@ -9,7 +9,13 @@ class HaCustomTimerCard extends LitElement {
     _now: { state: true },
     _inputHours: { state: true },
     _inputMinutes: { state: true },
-    _inputSeconds: { state: true }
+    _inputSeconds: { state: true },
+    // null  → follow the device-state default (on→끄기, off→켜기)
+    // string → the user explicitly picked this action for the next run
+    _pickedAction: { state: true },
+    // target device resolved from the bridge for cards created before we
+    // started storing `target_entity` in the config.
+    _resolvedTarget: { state: true }
   };
 
   constructor() {
@@ -18,6 +24,8 @@ class HaCustomTimerCard extends LitElement {
     this._inputHours = 0;
     this._inputMinutes = 30;
     this._inputSeconds = 0;
+    this._pickedAction = null;
+    this._resolvedTarget = null;
   }
 
   connectedCallback() {
@@ -81,10 +89,114 @@ class HaCustomTimerCard extends LitElement {
     this.hass.callService("timer", service, { entity_id: this._config.entity, ...data });
   }
 
-  _startTimerCustom() {
+  // ── 켜기/끄기 동작 선택 ───────────────────────────────────────────────
+  // The actual on/off happens in the bridge automation (timer-bridge
+  // blueprint), which keys off its `action_type` input. The card surfaces
+  // that choice as a radio above the timer and pushes the selection back to
+  // the bridge so the *next* run finishes in the chosen direction.
+
+  // The target device this timer controls. Wizard-created cards store it in
+  // the config; older cards fall back to whatever we resolved off the bridge.
+  get _targetEntity() {
+    return this._config?.target_entity || this._resolvedTarget || null;
+  }
+
+  // The bridge's storage id (config/automation/config/<id>). Stored by the
+  // wizard; derivable from the timer entity for older cards since the wizard
+  // names bridges `timer_bridge_<timerId>` and the timer `timer.<timerId>`.
+  get _bridgeConfigId() {
+    if (this._config?.bridge) return this._config.bridge;
+    const e = this._config?.entity;
+    if (typeof e === "string" && e.startsWith("timer.")) {
+      return `timer_bridge_${e.slice("timer.".length)}`;
+    }
+    return null;
+  }
+
+  // Default direction from the device's current state: if it's on, the timer
+  // should turn it off (and vice-versa). Falls back to the bridge's stored
+  // action when the device state is unknown.
+  _defaultAction() {
+    const t = this._targetEntity;
+    const st = t ? this.hass?.states?.[t]?.state : null;
+    if (st === "on") return "turn_off";
+    if (st === "off") return "turn_on";
+    return this._config?.action_type || "turn_off";
+  }
+
+  // What the radio currently reflects: an explicit user pick, else the
+  // device-state default.
+  get _effectiveAction() {
+    return this._pickedAction || this._defaultAction();
+  }
+
+  _pickAction(mode) {
+    if (this._pickedAction === mode) return;
+    this._pickedAction = mode;
+    // Best-effort: keep the bridge in sync immediately so the choice sticks
+    // even if the user navigates away before pressing Start.
+    this._applyActionToBridge(mode);
+  }
+
+  // GET the bridge config, flip its `action_type` input, POST it back. The
+  // POST makes HA reload that automation, so awaiting this before timer.start
+  // guarantees the started/finished events use the new direction. Admin-only
+  // (same as the wizard) — degrades to a no-op for non-admins.
+  async _applyActionToBridge(mode) {
+    if (!this.hass) return;
+    const bridgeId = this._bridgeConfigId;
+    if (!bridgeId) return;
+    try {
+      const cfg = await this.hass.callApi("GET", `config/automation/config/${bridgeId}`);
+      const input = cfg?.use_blueprint?.input;
+      if (!input || input.action_type === mode) return;
+      const newCfg = {
+        ...cfg,
+        use_blueprint: {
+          ...cfg.use_blueprint,
+          input: { ...input, action_type: mode },
+        },
+      };
+      await this.hass.callApi("POST", `config/automation/config/${bridgeId}`, newCfg);
+    } catch (e) {
+      console.warn("[timer] bridge action update failed:", e);
+    }
+  }
+
+  updated() {
+    // Re-default the direction once a run ends, so a freshly-idle timer
+    // reflects the device's new state instead of the previous pick.
+    const s = this._lastTimerState;
+    if (this._prevTimerState && this._prevTimerState !== "idle" && s === "idle" && this._pickedAction !== null) {
+      this._pickedAction = null;
+    }
+    this._prevTimerState = s;
+
+    // Lazy target lookup for older cards that never stored target_entity.
+    if (!this._config?.target_entity && !this._resolvedTarget && !this._resolvingTarget) {
+      this._resolvingTarget = true; // run once regardless of outcome
+      this._resolveTargetFromBridge();
+    }
+  }
+
+  async _resolveTargetFromBridge() {
+    const bridgeId = this._bridgeConfigId;
+    if (!bridgeId || !this.hass) return;
+    try {
+      const cfg = await this.hass.callApi("GET", `config/automation/config/${bridgeId}`);
+      const target = cfg?.use_blueprint?.input?.target_device;
+      if (target) this._resolvedTarget = target;
+    } catch (e) {
+      /* non-admin or no bridge — radio just falls back to action_type */
+    }
+  }
+
+  async _startTimerCustom() {
     const totalSec = (this._inputHours * 3600) + (this._inputMinutes * 60) + this._inputSeconds;
     if (totalSec <= 0) return;
     const durationStr = this._formatSeconds(totalSec);
+    // Make sure the bridge finishes in the chosen direction before we start.
+    await this._applyActionToBridge(this._effectiveAction);
     this._callService("start", { duration: durationStr });
   }
 
@@ -178,6 +290,13 @@ class HaCustomTimerCard extends LitElement {
     const m = Math.floor((remainingSec % 3600) / 60);
     const s = Math.floor(remainingSec % 60);
 
+    // 켜기/끄기 선택 (기본값은 기기 상태에 따라 자동 결정)
+    const effectiveAction = this._effectiveAction;
+    const actionLocked = !isDummy && state !== "idle";
+    const finishMsg = effectiveAction === "turn_on"
+      ? this._t("countdownMessageOn")
+      : this._t("countdownMessage");
+
     return html`
       <ha-card>
         <div class="card-header">
@@ -191,6 +310,30 @@ class HaCustomTimerCard extends LitElement {
         </div>
 
         <div class="card-content">
+          <div class="action-toggle" role="radiogroup" aria-label="${this._t("endActionLabel")}">
+            <span class="action-toggle-label">${this._t("endActionLabel")}</span>
+            <div class="action-options">
+              <button type="button"
+                      class="action-pill ${effectiveAction === 'turn_on' ? 'selected on' : ''}"
+                      role="radio"
+                      aria-checked="${effectiveAction === 'turn_on'}"
+                      ?disabled="${actionLocked}"
+                      @click="${() => this._pickAction('turn_on')}">
+                <ha-icon icon="mdi:power"></ha-icon>
+                <span>${this._t("actionOn")}</span>
+              </button>
+              <button type="button"
+                      class="action-pill ${effectiveAction === 'turn_off' ? 'selected off' : ''}"
+                      role="radio"
+                      aria-checked="${effectiveAction === 'turn_off'}"
+                      ?disabled="${actionLocked}"
+                      @click="${() => this._pickAction('turn_off')}">
+                <ha-icon icon="mdi:power-off"></ha-icon>
+                <span>${this._t("actionOff")}</span>
+              </button>
+            </div>
+          </div>
+
           ${state === "idle" ? html`
             <!-- 대기 상태: 숫자 증감 입력 -->
             <div class="time-spinner-row">
@@ -232,7 +375,7 @@ class HaCustomTimerCard extends LitElement {
                   if(m > 0 || h > 0) timeArr.push(m + this._t("minutesStr"));
                   timeArr.push(s + this._t("secondsStr"));
                   const remainStr = timeArr.join(' ');
-                  return html`<span style="background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 12px;">${remainStr} ${this._t("countdownMessage")}</span>`;
+                  return html`<span style="background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 12px;">${remainStr} ${finishMsg}</span>`;
                 })()}
               </div>
             </div>
@@ -351,6 +494,64 @@ class HaCustomTimerCard extends LitElement {
       flex-direction: column;
       align-items: center;
       gap: 12px;
+    }
+
+    /* === 켜기/끄기 토글 (타이머 위) === */
+    .action-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .action-toggle-label {
+      font-size: 0.8rem;
+      color: var(--custom-secondary);
+      white-space: nowrap;
+    }
+
+    .action-options {
+      display: flex;
+      gap: 6px;
+      background: rgba(127, 127, 127, 0.1);
+      border-radius: 999px;
+      padding: 3px;
+    }
+
+    .action-pill {
+      appearance: none;
+      -webkit-appearance: none;
+      font: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 14px;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--custom-secondary);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .action-pill ha-icon { --mdc-icon-size: 16px; }
+
+    .action-pill.selected.on {
+      background: var(--custom-success);
+      color: #fff;
+    }
+
+    .action-pill.selected.off {
+      background: var(--custom-secondary);
+      color: var(--card-background-color, #1c1c1c);
+    }
+
+    .action-pill:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
     }
 
     /* === 숫자 스피너 (대기 상태) === */

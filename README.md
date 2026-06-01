@@ -29,6 +29,8 @@ Single JS file. UI auto-switches between English and Korean based on your Home A
 ## Features
 
 - **Auto-create schedules** — pick a target device in the card editor and the schedule helper plus on/off automation are generated for you.
+- **Turn-on / turn-off schedules** — dedicated cards fire a device on (or off) at the listed times per weekday, with a time + day picker.
+- **Timer with direction toggle** — the timer card shows on/off radios above the countdown; it defaults to the opposite of the device's current state (on → off, off → on) and finishes in the chosen direction.
 - **Single-file delivery** — everything ships in `timer-schedule-card.js`; HACS custom repository supported.
 - **24-hour weekly timeline** — vertical timeline (columns = days, axis = 0–24h) with a now-indicator line.
 - **Daily merged tab** — view the intersection of blocks across all 7 days; add or delete them all at once.
@@ -93,10 +95,12 @@ title: Living Room Light               # card title (optional)
 
 ### Available cards
 
-| Card          | Type                              | Description                                       |
-|---------------|-----------------------------------|---------------------------------------------------|
-| Schedule Card | `custom:ha-custom-schedule-card`  | Vertical 24h weekly timeline, daily merged tab    |
-| Timer Card    | `custom:ha-custom-timer-card`     | Circular progress bar, device off-timer           |
+| Card                   | Type                              | Description                                                  |
+|------------------------|-----------------------------------|--------------------------------------------------------------|
+| Schedule Card          | `custom:ha-custom-schedule-card`  | Vertical 24h weekly timeline, daily merged tab               |
+| Timer Card             | `custom:ha-custom-timer-card`     | Countdown timer with on/off direction picker (defaults to device state) |
+| Turn-On Schedule Card  | `custom:ha-custom-turn-on-card`   | Time + weekday picker; turns a device **on** at each time    |
+| Turn-Off Schedule Card | `custom:ha-custom-turn-off-card`  | Time + weekday picker; turns a device **off** at each time   |
 
 ## How It Works
 
