@@ -2,9 +2,16 @@
 import { LitElement, html, css } from "lit";
 import { TURN_ON_LOCALES } from "../locales/index.js";
 
-// Mirrors AUTOMATION_TAG in turn-on-card.ts. Kept inline to avoid a runtime
+// Mirrors TAG_BY_MODE in turn-on-card.ts. Kept inline to avoid a runtime
 // import dependency between editor and card.
-const AUTOMATION_TAG = "[schedule-ui:turn-on]";
+const TAG_BY_MODE = {
+  turn_on: "[schedule-ui:turn-on]",
+  turn_off: "[schedule-ui:turn-off]",
+};
+const SERVICE_BY_MODE = {
+  turn_on: "homeassistant.turn_on",
+  turn_off: "homeassistant.turn_off",
+};
 
 class HaCustomTurnOnCardEditor extends LitElement {
   static properties = {
@@ -35,6 +42,22 @@ class HaCustomTurnOnCardEditor extends LitElement {
     return TURN_ON_LOCALES[lang]?.[key] ?? TURN_ON_LOCALES.en[key];
   }
 
+  // Mode-suffixed locale lookup. Mirrors `_tm` in turn-on-card.ts. Mode-
+  // agnostic strings (dialog text, weekday labels) stay on plain `_t`.
+  _tm(base) {
+    const mode = this._actionMode;
+    const suffix = mode === "turn_off" ? "TurnOff" : "TurnOn";
+    return this._t(`${base}${suffix}`);
+  }
+
+  // Editor inherits the action_mode from the card config. New configs
+  // ship via getStubConfig (turn-off card sets it explicitly; turn-on
+  // card omits and we default to turn_on for backward compat).
+  get _actionMode() {
+    const v = this._config?.action_mode;
+    return v === "turn_off" ? "turn_off" : "turn_on";
+  }
+
   configChanged(newConfig) {
     const event = new Event("config-changed", { bubbles: true, composed: true });
     event.detail = { config: newConfig };
@@ -48,11 +71,15 @@ class HaCustomTurnOnCardEditor extends LitElement {
     const targetEntityId = ev.detail.value;
     if (this._isCreating || !this.hass || !targetEntityId) return;
 
+    const mode = this._actionMode;
     const entityObj = this.hass.states[targetEntityId];
     const friendly = entityObj?.attributes?.friendly_name || targetEntityId.split('.')[1] || this._t("unknownDevice");
-    const alias = `${friendly}${this._t("routineSuffix")}`;
+    const alias = `${friendly}${this._tm("routineSuffix")}`;
     const slug = targetEntityId.split('.')[1] || "device";
-    const automationId = `turn_on_${slug}_${Date.now().toString(36)}`;
+    // Prefix the automation config_id with the mode so users browsing the
+    // HA automations page can tell them apart at a glance.
+    const idPrefix = mode === "turn_off" ? "turn_off" : "turn_on";
+    const automationId = `${idPrefix}_${slug}_${Date.now().toString(36)}`;
 
     this._isCreating = true;
     this._createResult = null;
@@ -61,12 +88,12 @@ class HaCustomTurnOnCardEditor extends LitElement {
     try {
       const automationPayload = {
         alias,
-        description: `${AUTOMATION_TAG} ${friendly}`,
+        description: `${TAG_BY_MODE[mode]} ${friendly}`,
         // No triggers yet — user adds times in the card itself.
         trigger: [],
         condition: [],
         action: [{
-          service: "homeassistant.turn_on",
+          service: SERVICE_BY_MODE[mode],
           target: { entity_id: targetEntityId },
         }],
         mode: "single",
@@ -80,7 +107,10 @@ class HaCustomTurnOnCardEditor extends LitElement {
       const entityId = await this._resolveEntityIdByUniqueId(automationId);
       const stored = entityId || automationId;
       this._createResult = { success: true, automationId, entityId };
-      this.configChanged({ ...this._config, automation: stored });
+      // Persist the resolved entity_id AND keep the (possibly default)
+      // action_mode in the config so reopening the editor stays in the
+      // same mode.
+      this.configChanged({ ...this._config, action_mode: mode, automation: stored });
     } catch (e) {
       console.error("[turn-on] wizard failed:", e);
       this._createResult = { success: false, message: e?.message || JSON.stringify(e) };
@@ -90,23 +120,49 @@ class HaCustomTurnOnCardEditor extends LitElement {
     }
   }
 
+  _onModeChanged(ev) {
+    const next = ev.detail.value === "turn_off" ? "turn_off" : "turn_on";
+    if (next === this._actionMode) return;
+    this.configChanged({ ...this._config, action_mode: next });
+  }
+
   render() {
     if (!this.hass || !this._config) return html``;
 
     // POST to config/automation/config/<id> is admin-only. Hide the wizard for
     // non-admins; they can still point the card at an existing automation.
     const isAdmin = !!this.hass.user?.is_admin;
+    const mode = this._actionMode;
 
     return html`
       <div class="card-config">
+
+        <div class="mode-row">
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{
+              select: {
+                mode: "dropdown",
+                options: [
+                  { value: "turn_on", label: this._t("modeTurnOn") },
+                  { value: "turn_off", label: this._t("modeTurnOff") },
+                ],
+              },
+            }}
+            .value=${mode}
+            .required=${true}
+            .label=${this._t("editorModeLabel")}
+            @value-changed=${this._onModeChanged}
+          ></ha-selector>
+        </div>
 
         ${isAdmin ? html`
           <div class="wizard-section">
             <div class="wizard-title">
               <ha-icon icon="mdi:magic-staff"></ha-icon>
-              <span>${this._t("editorWizardTitle")}</span>
+              <span>${this._tm("editorWizardTitle")}</span>
             </div>
-            <p class="wizard-desc">${this._t("editorWizardDesc")}</p>
+            <p class="wizard-desc">${this._tm("editorWizardDesc")}</p>
 
             ${this._isCreating ? html`
               <div class="creating">
@@ -119,7 +175,7 @@ class HaCustomTurnOnCardEditor extends LitElement {
                 .selector=${{ entity: { domain: ["switch", "light", "fan", "climate", "cover", "media_player", "input_boolean"] } }}
                 .value=${""}
                 .required=${false}
-                .label=${this._t("editorTargetDevice")}
+                .label=${this._tm("editorTargetDevice")}
                 @value-changed=${this._onWizardDevicePicker}
               ></ha-selector>
             `}
@@ -139,7 +195,7 @@ class HaCustomTurnOnCardEditor extends LitElement {
         ` : html`
           <div class="non-admin">
             <ha-icon icon="mdi:shield-account"></ha-icon>
-            <span>${this._t("adminOnlyWizard")}</span>
+            <span>${this._tm("adminOnlyWizard")}</span>
           </div>
         `}
 
@@ -233,6 +289,7 @@ class HaCustomTurnOnCardEditor extends LitElement {
 
   static styles = css`
     .card-config { display: flex; flex-direction: column; }
+    .mode-row { margin-bottom: 16px; }
     .wizard-section {
       background: var(--secondary-background-color, rgba(0,0,0,0.05));
       padding: 16px;
