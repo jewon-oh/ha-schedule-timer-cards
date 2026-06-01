@@ -1,0 +1,50 @@
+name: Feature request
+description: Suggest a new capability or an improvement to an existing one.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: card-type
+    attributes:
+      label: Which card / area?
+      multiple: true
+      options:
+        - Schedule card
+        - Timer card
+        - Turn-On Schedule card
+        - Editor / wizard
+        - Bridge automation / blueprint
+        - Localization
+        - Documentation
+        - Other / new card
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / use case
+      description: What are you trying to accomplish? What's the friction today?
+      placeholder: |
+        Today I have to … because the card …
+        I'd like to …
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution (optional)
+      description: A rough sketch of how it might work. Mockups welcome.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered (optional)
+      description: HA built-ins, other cards, automations, etc. — what doesn't fit?
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context (optional)
+      description: Anything else — screenshots, links to related discussions, etc.

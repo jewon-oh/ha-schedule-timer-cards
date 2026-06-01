@@ -1,0 +1,117 @@
+name: Bug report
+description: Something doesn't behave as expected in one of the cards.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! A few notes before you start:
+        - The card prints a version banner to the browser console on load,
+          e.g. `[schedule-ui] v1.5.0 loaded`. Please include that version.
+        - Console logs from the card are prefixed with `[schedule-ui]` /
+          `[turn-on]` — those are usually the most useful diagnostics.
+
+  - type: input
+    id: card-version
+    attributes:
+      label: Card version
+      description: From the browser console banner, e.g. `v1.5.0`.
+      placeholder: v1.5.0
+    validations:
+      required: true
+
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      description: Settings → System → Repairs → top of the page, or `Settings → About`.
+      placeholder: "2026.5.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: card-type
+    attributes:
+      label: Which card?
+      multiple: true
+      options:
+        - Schedule card (ha-custom-schedule-card)
+        - Timer card (ha-custom-timer-card)
+        - Turn-On Schedule card (ha-custom-turn-on-card)
+        - Editor / wizard
+        - Bridge automation / blueprint
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: client
+    attributes:
+      label: Where are you seeing it?
+      multiple: true
+      options:
+        - HA Companion app (iOS)
+        - HA Companion app (Android)
+        - Desktop browser (Chrome / Edge / Chromium)
+        - Desktop browser (Firefox)
+        - Desktop browser (Safari)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you observe? What did you expect instead?
+      placeholder: |
+        Observed: …
+        Expected: …
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: As precise as possible — taps, drags, config edits.
+      placeholder: |
+        1. Add the Turn-On Schedule card to a dashboard
+        2. Pick `switch.living_room_lamp` in the wizard
+        3. Click "Add time" twice
+        4. Toggle off Wednesday
+        5. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Browser console output
+      description: |
+        Browser devtools → Console. Anything prefixed with
+        `[schedule-ui]` / `[turn-on]`, plus any red errors around the same
+        time. Wrap in triple backticks.
+      render: text
+
+  - type: textarea
+    id: card-config
+    attributes:
+      label: Card YAML (Show code editor → copy)
+      description: Helps pinpoint config-specific bugs. Redact any sensitive entity_ids.
+      render: yaml
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / video
+      description: Drag-and-drop into this box; GitHub uploads automatically.
+
+  - type: checkboxes
+    id: hard-refresh
+    attributes:
+      label: Hard refresh
+      options:
+        - label: I have done a hard refresh (Ctrl+Shift+R / Cmd+Shift+R) after installing the latest version.
+          required: true
