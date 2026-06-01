@@ -775,7 +775,7 @@ class HaCustomScheduleCard extends LitElement {
       /* HA sections 레이아웃에서 그리드 칸 수가 바뀔 때 자연스럽게 따라간다.
          min-height는 12개 행을 최소한 읽을 수 있는 크기, max-height는 큰 화면에서
          과도하게 길어지지 않도록. CSS 변수로 노출해 카드 옵션·user style로 조절 가능. */
-      height: var(--schedule-card-timeline-height, clamp(420px, 60vh, 720px));
+      height: var(--schedule-card-timeline-height, clamp(380px, 55vh, 660px));
     }
 
     .hour-labels-col {
