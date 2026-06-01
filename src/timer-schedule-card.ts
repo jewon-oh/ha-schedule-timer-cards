@@ -16,8 +16,10 @@
 import "./locales/index.js";
 import "./editors/schedule-editor.js";
 import "./editors/timer-editor.js";
+import "./editors/turn-on-editor.js";
 import "./cards/schedule-card.js";
 import "./cards/timer-card.js";
+import "./cards/turn-on-card.js";
 
 console.log(
   "%c[schedule-ui] v1.4.7 loaded",
