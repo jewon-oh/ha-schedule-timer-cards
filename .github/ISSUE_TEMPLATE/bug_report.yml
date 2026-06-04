@@ -8,8 +8,8 @@ body:
       value: |
         Thanks for taking the time to file a bug! A few notes before you start:
         - The card prints a version banner to the browser console on load,
-          e.g. `[schedule-ui] v1.5.0 loaded`. Please include that version.
-        - Console logs from the card are prefixed with `[schedule-ui]` /
+          e.g. `[ha-schedule-timer-cards] v1.5.0 loaded`. Please include that version.
+        - Console logs from the card are prefixed with `[ha-schedule-timer-cards]` /
           `[turn-on]` — those are usually the most useful diagnostics.
 
   - type: input
@@ -91,7 +91,7 @@ body:
       label: Browser console output
       description: |
         Browser devtools → Console. Anything prefixed with
-        `[schedule-ui]` / `[turn-on]`, plus any red errors around the same
+        `[ha-schedule-timer-cards]` / `[turn-on]`, plus any red errors around the same
         time. Wrap in triple backticks.
       render: text
 

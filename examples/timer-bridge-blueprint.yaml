@@ -1,6 +1,8 @@
 blueprint:
   name: "스마트 타이머 자동화 브릿지"
-  description: "Timer UI 전용 연동 템플릿입니다. 타이머 시작 시 기기를 켜고, 종료 시 끕니다 (선택한 동작에 따라 역전)."
+  description: >-
+    Timer UI 전용 연동 템플릿입니다. 타이머가 끝나면 선택한 동작(켜기/끄기/상태 반전)을
+    대상 기기에 실행합니다. 시작 시에는 기기를 건드리지 않습니다 (종료 시에만 동작).
   domain: automation
   input:
     timer_helper:
@@ -12,13 +14,13 @@ blueprint:
 
     target_device:
       name: 대상 기기 (필수)
-      description: 타이머에 따라 실제로 제어할 기기를 선택하세요.
+      description: 타이머가 끝났을 때 제어할 기기를 선택하세요.
       selector:
-        entity: {}
+        entity: {} # 모든 도메인(switch, light 등) 허용
 
     action_type:
       name: 종료 시 동작
-      description: 타이머가 끝났을 때 어떤 동작을 할지 선택하세요. 시작 시에는 반대 동작이 자동 실행됩니다.
+      description: 타이머가 끝났을 때 어떤 동작을 할지 선택하세요.
       default: "turn_off"
       selector:
         select:
@@ -32,82 +34,19 @@ blueprint:
 
 variables:
   action_type: !input action_type
-  timer_helper: !input timer_helper
-  # 시작 시 역동작 매핑: turn_off→turn_on, turn_on→turn_off, toggle→toggle
-  start_action: >-
-    {% if action_type == 'turn_off' %}turn_on{% elif action_type == 'turn_on' %}turn_off{% else %}toggle{% endif %}
 
+# 타이머가 끝났을 때만 트리거 — 시작/상태변화에는 반응하지 않으므로
+# "시작하자마자 켜짐/꺼짐"이나 발진(피드백 루프)이 발생할 수 없다.
 trigger:
-  - platform: event
-    event_type: timer.started
-    event_data:
-      entity_id: !input timer_helper
-    id: "timer_started"
-  - platform: event
-    event_type: timer.restarted
-    event_data:
-      entity_id: !input timer_helper
-    id: "timer_started"
   - platform: event
     event_type: timer.finished
     event_data:
       entity_id: !input timer_helper
     id: "timer_finished"
-  - platform: state
-    entity_id: !input target_device
-    id: "device_state_changed"
-  # HA 재시작 직후, timer가 active 상태로 복원되어 있으면 대상 기기를 동기화한다.
-  # (HA가 timer를 idle로 복원하는 경우엔 이 분기는 no-op.)
-  - platform: homeassistant
-    event: start
-    id: "sync_on_start"
 
 action:
-  - choose:
-      # 타이머 시작/재시작 시: 역동작 (기본값: 켜기)
-      - conditions:
-          - condition: trigger
-            id: "timer_started"
-        sequence:
-          - service: "homeassistant.{{ start_action }}"
-            target:
-              entity_id: !input target_device
-      # 타이머 종료 시: 선택한 동작 (기본값: 끄기)
-      - conditions:
-          - condition: trigger
-            id: "timer_finished"
-        sequence:
-          - service: "homeassistant.{{ action_type }}"
-            target:
-              entity_id: !input target_device
-      # HA 시작 시 timer가 active 상태로 남아 있으면 시작 역동작을 재적용
-      - conditions:
-          - condition: trigger
-            id: "sync_on_start"
-          - condition: template
-            value_template: "{{ states(timer_helper) == 'active' }}"
-        sequence:
-          - service: "homeassistant.{{ start_action }}"
-            target:
-              entity_id: !input target_device
-      # 기기를 수동으로 목표 상태로 조작 시: 타이머도 취소 처리
-      - conditions:
-          - condition: trigger
-            id: "device_state_changed"
-          - condition: template
-            value_template: >-
-              {% if action_type == 'turn_off' and trigger.to_state.state == 'off' %}
-                true
-              {% elif action_type == 'turn_on' and trigger.to_state.state == 'on' %}
-                true
-              {% else %}
-                false
-              {% endif %}
-          - condition: template
-            value_template: "{{ states(timer_helper) in ['active', 'paused'] }}"
-        sequence:
-          - service: timer.cancel
-            target:
-              entity_id: !input timer_helper
+  - service: "homeassistant.{{ action_type }}"
+    target:
+      entity_id: !input target_device
 
 mode: single

@@ -69,7 +69,7 @@ async function checkPage(page, urlPath, expectedTag) {
     for (const r of results) {
       console.log(`\n=== ${r.urlPath} ===`);
       console.log(`element <${r.expectedTag}>: present=${r.present}, shadowRoot=${r.hasShadow}`);
-      const versionLine = r.logs.find(l => l.includes('schedule-ui'));
+      const versionLine = r.logs.find(l => l.includes('ha-schedule-timer-cards'));
       console.log(`banner: ${versionLine || 'NOT FOUND'}`);
       if (r.errors.length) {
         console.log(`errors (${r.errors.length}):`);

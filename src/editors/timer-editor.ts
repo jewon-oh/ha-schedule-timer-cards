@@ -51,7 +51,7 @@ class HaCustomTimerCardEditor extends LitElement {
         const timerResult = await this.hass.callWS(payload);
         timerId = timerResult.id;
         timerEntityId = `timer.${timerId}`;
-        console.log("[schedule-ui] timer helper create SUCCESS:", timerEntityId);
+        console.log("[ha-schedule-timer-cards] timer helper create SUCCESS:", timerEntityId);
       } catch (e) {
         console.warn("Timer helper auto-creation failed via config/timer/create. Error:", e);
         this._creationError = this._t("helperFailMsg");
@@ -64,7 +64,7 @@ class HaCustomTimerCardEditor extends LitElement {
       const bridgeId = `timer_bridge_${timerId}`;
       const alias = `${this._t("timerBridgeAliasPrefix")}${entityName}`;
       
-      console.log("[schedule-ui] Creating timer bridge (blueprint):", bridgeId, "for target:", targetEntityId);
+      console.log("[ha-schedule-timer-cards] Creating timer bridge (blueprint):", bridgeId, "for target:", targetEntityId);
 
       // 기존 동일 ID 브릿지 중복 제거
       try {
@@ -90,7 +90,7 @@ class HaCustomTimerCardEditor extends LitElement {
       };
 
       await this.hass.callApi("POST", `config/automation/config/${bridgeId}`, bridgePayload);
-      console.log("[schedule-ui] timer automation bridge (blueprint) create SUCCESS:", bridgeId);
+      console.log("[ha-schedule-timer-cards] timer automation bridge (blueprint) create SUCCESS:", bridgeId);
 
       // 설정 임시 업데이트.
       // target_entity / bridge / action_type 는 카드의 켜기·끄기 라디오가
