@@ -22,6 +22,7 @@ Single JS file. UI auto-switches between English and Korean based on your Home A
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [How It Works](#how-it-works)
+- [Troubleshooting](#troubleshooting)
 - [Development](#development)
 - [Contributing](#contributing)
 - [License](#license)
@@ -58,8 +59,9 @@ Single JS file. UI auto-switches between English and Korean based on your Home A
 
 > **Mobile / Companion cache:** HA's service worker can keep an old copy of the
 > bundle even after you refresh. Bump a query-string on the resource URL —
-> e.g. `/local/timer-schedule-card.js?v=1.4.2` — and update it on every release
-> to force a re-fetch.
+> e.g. `/local/timer-schedule-card.js?v=1.6.0` — and update it on every release
+> to force a re-fetch. See [Troubleshooting](#troubleshooting) below if a card
+> goes missing right after an update.
 >
 > **Permissions:** the **auto-create wizard** calls admin-only HA APIs
 > (`schedule/create`, `timer/create`, `config/automation/config/*`). Non-admin
@@ -112,6 +114,55 @@ schedule.my_device OFF → target device turn_off
 ```
 
 For brightness, color, temperature, or other conditions, edit the generated automation under **Settings → Automations**.
+
+## Troubleshooting
+
+### "Custom element doesn't exist: ha-custom-turn-on-card" / "구성 오류" after updating
+
+All four cards (`schedule`, `timer`, `turn-on`, `turn-off`) ship in **one** file,
+`timer-schedule-card.js`. When a release adds a new custom element, HA's
+service worker (and the Companion app's WebView) keeps serving the previously
+cached bundle from the **same URL**, so the new element is missing and HA shows
+*"Custom element doesn't exist"* or a *구성 오류* (configuration error) card.
+Older cards and other vendors' cards keep working — only the just-added element
+is absent.
+
+**Fix (manual install):**
+
+1. **Bump the resource version.** Go to **Settings → Dashboards → Resources**,
+   edit the `timer-schedule-card.js` entry, and change the query string to the
+   new release version, e.g. `/local/timer-schedule-card.js?v=1.6.0`. The `?v=`
+   value just has to *change* — matching the release version keeps it tidy.
+2. **Restart Home Assistant** (or reload the dashboard) so the new resource URL
+   is served.
+3. **Hard refresh the browser** — `Ctrl`+`F5` / `Ctrl`+`Shift`+`R` (Windows/Linux)
+   or `Cmd`+`Shift`+`R` (macOS).
+4. **Clear the Companion app frontend cache** if you use the mobile/desktop app
+   (the hard refresh above does not reach its WebView cache):
+   - **iOS:** App Settings → Companion App → Debug → **Reset frontend cache**.
+   - **Android:** Settings → Companion App → Troubleshooting → **Reset frontend cache**.
+   - **macOS:** menu-bar icon → Preferences → Debugging → **Reset frontend cache**.
+5. **Verify the loaded version.** Open the browser dev console (or the app's
+   debug log) and confirm the banner reads the new version:
+
+   ```text
+   [schedule-ui] v1.6.0 loaded
+   ```
+
+   If the banner still shows the old version, the stale bundle is still cached —
+   repeat the cache-clear step. Once the banner matches the release you just
+   installed, the new card type will resolve.
+
+> **HACS installs are auto-protected — no `?v=` bump needed.** HACS registers
+> the resource as `/hacsfiles/ha-schedule-timer-cards/timer-schedule-card.js?hacstag=…`
+> with a version-derived numeric cache-buster (it changes when the installed
+> version changes — it is *not* a content hash). Because that tag changes on
+> update, **every HACS update rewrites the resource URL automatically**, so the
+> browser sees a brand-new URL and is forced to re-fetch. HACS users only need
+> steps 3–4 (hard refresh / Companion frontend-cache reset) — skip step 1.
+> Caveat: this auto-rewrite only happens in **storage-mode**
+> Lovelace. If you run **YAML-mode** Lovelace, HACS cannot manage the resource, so
+> you must version the `/hacsfiles/...` URL yourself, exactly like a manual install.
 
 ## Development
 
