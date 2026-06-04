@@ -5,8 +5,8 @@
 **Languages:** [English](README.md) · [한국어](README.ko.md)
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
-[![GitHub Release](https://img.shields.io/github/v/release/jewon-oh/schedule-ui?include_prereleases)](https://github.com/jewon-oh/schedule-ui/releases)
-[![Validate](https://github.com/jewon-oh/schedule-ui/actions/workflows/validate.yml/badge.svg?branch=master)](https://github.com/jewon-oh/schedule-ui/actions/workflows/validate.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/jewon-oh/ha-schedule-timer-cards?include_prereleases)](https://github.com/jewon-oh/ha-schedule-timer-cards/releases)
+[![Validate](https://github.com/jewon-oh/ha-schedule-timer-cards/actions/workflows/validate.yml/badge.svg?branch=master)](https://github.com/jewon-oh/ha-schedule-timer-cards/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#라이선스)
 
 단일 JS 파일로 동작하며, Home Assistant 언어 설정에 따라 한국어/영어 UI가 자동 전환됩니다.
@@ -46,7 +46,7 @@
 2. 저장소 URL 입력:
 
    ```text
-   https://github.com/jewon-oh/schedule-ui
+   https://github.com/jewon-oh/ha-schedule-timer-cards
    ```
 
 3. 목록에서 `Custom Schedule Card`를 다운로드합니다.

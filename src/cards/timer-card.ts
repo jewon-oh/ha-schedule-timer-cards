@@ -810,6 +810,6 @@ window.customCards = window.customCards || [];
     name: t.cardName,
     preview: true,
     description: t.cardDescription,
-    documentationURL: "https://github.com/jewon-oh/schedule-ui",
+    documentationURL: "https://github.com/jewon-oh/ha-schedule-timer-cards",
   });
 })();

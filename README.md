@@ -5,8 +5,8 @@
 **Languages:** [English](README.md) · [한국어](README.ko.md)
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
-[![GitHub Release](https://img.shields.io/github/v/release/jewon-oh/schedule-ui?include_prereleases)](https://github.com/jewon-oh/schedule-ui/releases)
-[![Validate](https://github.com/jewon-oh/schedule-ui/actions/workflows/validate.yml/badge.svg?branch=master)](https://github.com/jewon-oh/schedule-ui/actions/workflows/validate.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/jewon-oh/ha-schedule-timer-cards?include_prereleases)](https://github.com/jewon-oh/ha-schedule-timer-cards/releases)
+[![Validate](https://github.com/jewon-oh/ha-schedule-timer-cards/actions/workflows/validate.yml/badge.svg?branch=master)](https://github.com/jewon-oh/ha-schedule-timer-cards/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
 
 Single JS file. UI auto-switches between English and Korean based on your Home Assistant language.
@@ -46,7 +46,7 @@ Single JS file. UI auto-switches between English and Korean based on your Home A
 2. Add the repository URL:
 
    ```text
-   https://github.com/jewon-oh/schedule-ui
+   https://github.com/jewon-oh/ha-schedule-timer-cards
    ```
 
 3. Download `Custom Schedule Card` from the list.
