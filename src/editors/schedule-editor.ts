@@ -66,7 +66,7 @@ class HaCustomScheduleCardEditor extends LitElement {
       if (!slices.target) slices.target = targetEntityId;
       if (!slices.friendly) slices.friendly = friendlyName;
 
-      const automationPayload = buildUnified(slices, existing || undefined);
+      const automationPayload = buildUnified(slices, existing && isUnified(existing) ? existing : undefined);
       await this.hass.callApi("POST", `config/automation/config/${automationId}`, automationPayload);
       console.log("[schedule-ui] unified bridge upserted:", automationId);
 
@@ -110,9 +110,11 @@ class HaCustomScheduleCardEditor extends LitElement {
         const bp = cfg?.use_blueprint;
         const isOurBlueprint = bp && typeof bp.path === "string" && bp.path.includes("schedule-bridge-blueprint");
         if (!isOurBlueprint) continue;
+        // The schedule blueprint targets exactly ONE device; only delete on an
+        // exact single-device match — never when target_device is a multi list
+        // (deleting that would lose control of the other devices).
         const tgt = bp?.input?.target_device;
-        const matches = tgt === targetEntityId || (Array.isArray(tgt) && tgt.includes(targetEntityId));
-        if (!matches) continue;
+        if (typeof tgt !== "string" || tgt !== targetEntityId) continue;
         try {
           await this.hass.callApi("DELETE", `config/automation/config/${cid}`);
           console.log("[schedule-ui] removed superseded blueprint bridge:", cid);

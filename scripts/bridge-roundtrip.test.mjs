@@ -14,6 +14,9 @@ import {
   deviceBridgeId,
   emptySlices,
   modeSliceKey,
+  readLegacySlice,
+  planLegacyMigration,
+  LEGACY_TURN_TAGS,
   TRIGGER_ID,
 } from "../src/shared/bridge.ts";
 
@@ -120,6 +123,198 @@ const syncArm = orArms.find(
 check("schedule arm present & ungated", !!schedArm);
 check("time-arm carries the weekday gate", !!timeArmAnd && timeArmAnd.and.some((x) => x.condition === "time"));
 check("sync arm has NO weekday gate", !!syncArm && !syncArm.and.some((x) => x.condition === "time"));
+
+console.log("legacy automation parsing (for migration)");
+const legacyOn = {
+  description: "[schedule-ui:turn-on] Kitchen",
+  trigger: [{ platform: "time", at: "07:00:00" }, { platform: "time", at: "06:30:00" }],
+  condition: [{ condition: "time", weekday: ["mon", "wed"] }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.kitchen" } }],
+  mode: "single",
+};
+const legOn = readLegacySlice(legacyOn);
+check("legacy mode = turn_on", legOn.mode === "turn_on");
+check("legacy times sorted", eq(legOn.times, ["06:30:00", "07:00:00"]));
+check("legacy weekdays parsed", eq(legOn.weekdays, ["mon", "wed"]));
+check("legacy target parsed", legOn.target === "switch.kitchen");
+check("legacy tag recognised", LEGACY_TURN_TAGS.some((t) => legacyOn.description.includes(t)));
+const legacyOff = {
+  description: "[schedule-ui:turn-off] Kitchen",
+  trigger: [{ platform: "time", at: "23:00:00" }],
+  condition: [],
+  action: [{ service: "homeassistant.turn_off", target: { entity_id: "switch.kitchen" } }],
+};
+const legOff = readLegacySlice(legacyOff);
+check("legacy off mode", legOff.mode === "turn_off");
+check("legacy off no-condition -> all 7 days", legOff.weekdays.length === 7);
+
+console.log("migration: legacy on+off adopted into a fresh unified bridge");
+const mslices = emptySlices({ target: "switch.kitchen", friendly: "Kitchen" });
+for (const leg of [legOn, legOff]) {
+  const key = leg.mode === "turn_off" ? "off" : "on";
+  mslices[key] = { times: leg.times, weekdays: leg.weekdays };
+}
+const migrated = buildUnified(mslices);
+const ms = readSlices(migrated);
+check("migrated on times", eq(ms.on.times, ["06:30:00", "07:00:00"]));
+check("migrated on weekdays", eq(ms.on.weekdays, ["mon", "wed"]));
+check("migrated off times", eq(ms.off.times, ["23:00:00"]));
+check("migrated off all-7 days", ms.off.weekdays.length === 7);
+check("unified bridge is not itself a legacy match", isUnified(migrated) && !LEGACY_TURN_TAGS.some((t) => (migrated.description || "").includes(t)));
+
+console.log("safety gates: readLegacySlice.fullyCaptured (must NOT delete these)");
+const scalarWd = readLegacySlice({
+  description: "[schedule-ui:turn-off] K",
+  trigger: [{ platform: "time", at: "23:00:00" }],
+  condition: [{ condition: "time", weekday: "mon" }],
+  action: [{ service: "homeassistant.turn_off", target: { entity_id: "switch.k" } }],
+});
+check("scalar weekday normalized to [mon]", eq(scalarWd.weekdays, ["mon"]) && scalarWd.fullyCaptured);
+const sunTrig = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "sun", event: "sunset" }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.k" } }],
+});
+check("non-time trigger -> fullyCaptured false", sunTrig.fullyCaptured === false);
+const multiTarget = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "07:00:00" }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: ["switch.k", "switch.living"] } }],
+});
+check("multi-target -> fullyCaptured false", multiTarget.fullyCaptured === false && multiTarget.targets.length === 2);
+const multiAction = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "07:00:00" }],
+  action: [
+    { service: "homeassistant.turn_on", target: { entity_id: "switch.k" } },
+    { service: "notify.me", data: { message: "hi" } },
+  ],
+});
+check("extra action -> fullyCaptured false", multiAction.fullyCaptured === false);
+const noTimes = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.k" } }],
+});
+check("no triggers/times -> fullyCaptured false", noTimes.fullyCaptured === false);
+const areaTarget = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "07:00:00" }],
+  action: [{ service: "homeassistant.turn_on", target: { area_id: "kitchen" } }],
+});
+check("area_id target -> fullyCaptured false", areaTarget.fullyCaptured === false);
+
+// condition guards: a tagged automation the user hand-edited to add a guard
+// (or a window/non-canonical weekday) must NOT be auto-migrated+deleted.
+const stateGuard = readLegacySlice({
+  description: "[schedule-ui:turn-off] K",
+  trigger: [{ platform: "time", at: "23:00:00" }],
+  condition: [{ condition: "state", entity_id: "binary_sensor.home", state: "on" }],
+  action: [{ service: "homeassistant.turn_off", target: { entity_id: "switch.k" } }],
+});
+check("state guard condition -> fullyCaptured false", stateGuard.fullyCaptured === false);
+const guardPlusWeekday = readLegacySlice({
+  description: "[schedule-ui:turn-off] K",
+  trigger: [{ platform: "time", at: "23:00:00" }],
+  condition: [
+    { condition: "state", entity_id: "binary_sensor.vacation", state: "off" },
+    { condition: "time", weekday: ["mon"] },
+  ],
+  action: [{ service: "homeassistant.turn_off", target: { entity_id: "switch.k" } }],
+});
+check("extra guard + weekday -> fullyCaptured false", guardPlusWeekday.fullyCaptured === false);
+const timeWindow = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "07:00:00" }],
+  condition: [{ condition: "time", after: "06:00:00", before: "09:00:00" }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.k" } }],
+});
+check("time after/before window -> fullyCaptured false", timeWindow.fullyCaptured === false);
+const nonCanonicalWd = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "07:00:00" }],
+  condition: [{ condition: "time", weekday: ["monday"] }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.k" } }],
+});
+check("non-canonical weekday code -> fullyCaptured false (not widened to all-7)", nonCanonicalWd.fullyCaptured === false);
+const cleanWeekday = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "07:00:00" }],
+  condition: [{ condition: "time", weekday: ["mon", "fri"] }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.k" } }],
+});
+check("clean single weekday condition -> fullyCaptured true", cleanWeekday.fullyCaptured === true && eq(cleanWeekday.weekdays, ["mon", "fri"]));
+
+// capture fidelity: non-literal / disabled / data-carrying shapes must be KEPT
+const entityAt = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "input_datetime.wake" }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.k" } }],
+});
+check("entity/relative `at` -> fullyCaptured false (not coerced to 00:00)", entityAt.fullyCaptured === false);
+const disabledTrig = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "07:00:00" }, { platform: "time", at: "09:00:00", enabled: false }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.k" } }],
+});
+check("disabled time trigger -> fullyCaptured false", disabledTrig.fullyCaptured === false);
+const disabledCond = readLegacySlice({
+  description: "[schedule-ui:turn-off] K",
+  trigger: [{ platform: "time", at: "23:00:00" }],
+  condition: [{ condition: "time", weekday: ["mon"], enabled: false }],
+  action: [{ service: "homeassistant.turn_off", target: { entity_id: "switch.k" } }],
+});
+check("disabled weekday condition -> fullyCaptured false", disabledCond.fullyCaptured === false);
+const topDisabled = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  enabled: false,
+  trigger: [{ platform: "time", at: "07:00:00" }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.k" } }],
+});
+check("top-level disabled automation -> fullyCaptured false", topDisabled.fullyCaptured === false);
+const dataParams = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "07:00:00" }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.k" }, data: { brightness: 50 } }],
+});
+check("action with extra data -> fullyCaptured false", dataParams.fullyCaptured === false);
+const actionKeyVariant = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "07:00:00" }],
+  action: [{ action: "homeassistant.turn_on", target: { entity_id: "switch.k" } }],
+});
+check("modern `action:` key still recognized (pristine)", actionKeyVariant.fullyCaptured === true && actionKeyVariant.mode === "turn_on");
+const outOfRange = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "25:00:00" }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.k" } }],
+});
+check("out-of-range time literal -> fullyCaptured false", outOfRange.fullyCaptured === false);
+const nullInTargets = readLegacySlice({
+  description: "[schedule-ui:turn-on] K",
+  trigger: [{ platform: "time", at: "07:00:00" }],
+  action: [{ service: "homeassistant.turn_on", target: { entity_id: ["switch.k", null] } }],
+});
+check("non-string entry in entity_id array -> fullyCaptured false", nullInTargets.fullyCaptured === false);
+
+console.log("planLegacyMigration: conflicting weekdays are KEPT not merged");
+const base = emptySlices({ target: "switch.k", friendly: "K" });
+const planConflict = planLegacyMigration(base, [
+  { cid: "a", slice: { mode: "turn_on", times: ["07:00:00"], weekdays: ["mon", "tue", "wed", "thu", "fri"] } },
+  { cid: "b", slice: { mode: "turn_on", times: ["09:00:00"], weekdays: ["sat", "sun"] } },
+]);
+check("first same-mode adopted (delete a)", planConflict.toDelete.includes("a"));
+check("conflicting-weekday kept (skip b, NOT deleted)", planConflict.skipped.includes("b") && !planConflict.toDelete.includes("b"));
+check("adopted slice keeps its own weekdays (no clobber)", eq(planConflict.slices.on.weekdays, ["mon", "tue", "wed", "thu", "fri"]));
+check("conflicting times NOT merged in", eq(planConflict.slices.on.times, ["07:00:00"]));
+
+console.log("planLegacyMigration: same weekdays union + both deleted");
+const planUnion = planLegacyMigration(emptySlices({ target: "switch.k", friendly: "K" }), [
+  { cid: "a", slice: { mode: "turn_on", times: ["07:00:00"], weekdays: ["mon"] } },
+  { cid: "b", slice: { mode: "turn_on", times: ["09:00:00"], weekdays: ["mon"] } },
+]);
+check("same-weekday union times", eq(planUnion.slices.on.times, ["07:00:00", "09:00:00"]));
+check("both deleted on union", planUnion.toDelete.includes("a") && planUnion.toDelete.includes("b") && planUnion.skipped.length === 0);
 
 function triggerHasId(cfg, id) {
   return (cfg.trigger || []).some((t) => t.id === id);
