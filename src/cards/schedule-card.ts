@@ -276,7 +276,7 @@ class HaCustomScheduleCard extends LitElement {
       const days = this._activeDays || [];
       const daysStr = days.length === 7
         ? (this._lang === "ko" ? "매일" : "Daily")
-        : [...days].sort((a, b) => a - b).map((i) => short[i]).join(this._lang === "ko" ? "" : " ");
+        : [...days].sort((a, b) => a - b).map((i) => short[i]).join(this._lang === "ko" ? "," : " ");
       const ranges = (this._blocks || []).map((b) => `${b.from.slice(0, 5)}-${b.to.slice(0, 5)}`).join(", ");
       const txt = ranges ? (daysStr ? `${daysStr} ${ranges}` : ranges) : "";
       const ent = "input_text.sui_sched_" + String(dev).replace(/[^a-z0-9_]+/gi, "_").toLowerCase();
