@@ -1,5 +1,5 @@
 {
-  "name": "schedule-ui",
+  "name": "ha-schedule-timer-cards",
   "version": "1.6.1",
   "packageManager": "pnpm@11.2.2",
   "description": "Home Assistant Lovelace custom cards for schedule and timer helpers, with auto-generated automation bridges.",
@@ -28,7 +28,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jewon-oh/schedule-ui.git"
+    "url": "git+https://github.com/jewon-oh/ha-schedule-timer-cards.git"
   },
   "keywords": [
     "home-assistant",
@@ -41,9 +41,9 @@
   "author": "jewon-oh",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jewon-oh/schedule-ui/issues"
+    "url": "https://github.com/jewon-oh/ha-schedule-timer-cards/issues"
   },
-  "homepage": "https://github.com/jewon-oh/schedule-ui#readme",
+  "homepage": "https://github.com/jewon-oh/ha-schedule-timer-cards#readme",
   "dependencies": {
     "lit": "^3.3.0"
   },
