@@ -123,10 +123,14 @@ for the full shape. For brightness, color, temperature, or other tweaks, edit
 the generated automation under **Settings → Automations**.
 
 > **Migration:** existing separate automations keep working untouched. Re-running
-> the schedule wizard for a device upgrades it to the unified bridge and removes
-> the device's old auto-generated blueprint bridge so it can't double-drive.
-> Older standalone turn-on/turn-off automations keep their original (flat) shape
-> until you re-link them via the card editor's wizard.
+> a device's wizard upgrades it to the unified bridge: the schedule wizard removes
+> the device's old auto-generated blueprint bridge, and the turn-on/turn-off
+> wizard migrates the device's old auto-generated standalone turn-on/off
+> automations into the bridge (times + weekdays preserved) and then removes them,
+> so nothing double-drives. Automations that were hand-edited — extra conditions,
+> dynamic/entity times, brightness data, multiple targets, disabled rules — are
+> recognised as non-pristine and **kept untouched** (a notice flags any leftovers
+> for manual review).
 
 ## Troubleshooting
 
