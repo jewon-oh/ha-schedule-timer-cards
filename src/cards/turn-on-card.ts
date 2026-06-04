@@ -355,6 +355,7 @@ class HaCustomTurnOnCard extends LitElement {
 
       await this._hass.callApi("POST", `config/automation/config/${this._automationId}`, newCfg);
       this._automationConfig = newCfg;
+      this._mirrorOnOffSummary(newCfg);
     } catch (e) {
       console.error("[turn-on] save failed:", e);
       const code = e?.code || e?.error?.code;
@@ -364,6 +365,34 @@ class HaCustomTurnOnCard extends LitElement {
       await this._loadAutomation();
     } finally {
       this._isSaving = false;
+    }
+  }
+
+  // Optional integration: if an `input_text` named `sui_onoff_<target>` exists
+  // (target entity_id slugified), mirror a human-readable on/off summary into
+  // it on every save, so the schedule can be shown outside the card (e.g. a
+  // dashboard popup row). Silent no-op when the helper is absent or read-only.
+  async _mirrorOnOffSummary(cfg) {
+    try {
+      if (!this._hass || !isUnified(cfg)) return;
+      const s = readSlices(cfg);
+      if (!s.target) return;
+      const onL = this._lang === "ko" ? "켜기" : "On";
+      const offL = this._lang === "ko" ? "끄기" : "Off";
+      const short = this._t("daysShort");
+      const fmt = (label, slc) => {
+        if (!slc?.times?.length) return null;
+        const days = slc.weekdays && slc.weekdays.length < 7
+          ? [...slc.weekdays].sort((a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b))
+              .map((d) => short[WEEKDAYS.indexOf(d)]).join(this._lang === "ko" ? "" : " ") + " "
+          : "";
+        return `${label} ${days}${slc.times.map((t) => t.slice(0, 5)).join(",")}`;
+      };
+      const txt = [fmt(onL, s.on), fmt(offL, s.off)].filter(Boolean).join(" · ");
+      const ent = "input_text.sui_onoff_" + String(s.target).replace(/[^a-z0-9_]+/gi, "_").toLowerCase();
+      await this._hass.callService("input_text", "set_value", { entity_id: ent, value: txt.slice(0, 255) });
+    } catch (e) {
+      /* helper not present / not writable — optional feature, ignore */
     }
   }
 
