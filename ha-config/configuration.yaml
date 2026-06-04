@@ -22,7 +22,7 @@ frontend:
     # service-worker cached copy. scripts/release.js rewrites this ?v= to the
     # new package.json version on every release, so it can never drift — do not
     # hand-edit it (single source of truth = package.json version).
-    - /local/timer-schedule-card.js?v=1.8.2
+    - /local/timer-schedule-card.js?v=1.8.3
 
 # Default dashboard stays in storage mode (so HA's UI editor still works for
 # scratch work). Add a dedicated yaml-mode dashboard for the plugin test bench
