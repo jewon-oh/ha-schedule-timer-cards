@@ -163,7 +163,7 @@ is absent.
    debug log) and confirm the banner reads the new version:
 
    ```text
-   [schedule-ui] v1.6.0 loaded
+   [ha-schedule-timer-cards] v1.6.0 loaded
    ```
 
    If the banner still shows the old version, the stale bundle is still cached —

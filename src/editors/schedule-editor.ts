@@ -35,7 +35,7 @@ class HaCustomScheduleCardEditor extends LitElement {
     this.requestUpdate();
 
     try {
-      console.log("[schedule-ui] Editor Auto createRoutine - name:", routineName, "target:", targetEntityId);
+      console.log("[ha-schedule-timer-cards] Editor Auto createRoutine - name:", routineName, "target:", targetEntityId);
       
       const schedulePayload = {
         type: "schedule/create",
@@ -45,7 +45,7 @@ class HaCustomScheduleCardEditor extends LitElement {
 
 
       const scheduleResult = await this.hass.callWS(schedulePayload);
-      console.log("[schedule-ui] schedule/create SUCCESS:", scheduleResult);
+      console.log("[ha-schedule-timer-cards] schedule/create SUCCESS:", scheduleResult);
 
       const scheduleId = scheduleResult.id;
       const scheduleEntityId = `schedule.${scheduleId}`;
@@ -68,7 +68,7 @@ class HaCustomScheduleCardEditor extends LitElement {
 
       const automationPayload = buildUnified(slices, existing && isUnified(existing) ? existing : undefined);
       await this.hass.callApi("POST", `config/automation/config/${automationId}`, automationPayload);
-      console.log("[schedule-ui] unified bridge upserted:", automationId);
+      console.log("[ha-schedule-timer-cards] unified bridge upserted:", automationId);
 
       // Remove any superseded legacy blueprint bridge for this same device so
       // it can't double-drive the device alongside the unified bridge. Only
@@ -82,7 +82,7 @@ class HaCustomScheduleCardEditor extends LitElement {
       this.configChanged({ ...this._config, entity: scheduleEntityId });
 
     } catch (e) {
-      console.error("[schedule-ui] createRoutine FAILED:", e);
+      console.error("[ha-schedule-timer-cards] createRoutine FAILED:", e);
       this._createResult = { success: false, message: e.message || JSON.stringify(e) };
     } finally {
       this._isCreating = false;
@@ -117,13 +117,13 @@ class HaCustomScheduleCardEditor extends LitElement {
         if (typeof tgt !== "string" || tgt !== targetEntityId) continue;
         try {
           await this.hass.callApi("DELETE", `config/automation/config/${cid}`);
-          console.log("[schedule-ui] removed superseded blueprint bridge:", cid);
+          console.log("[ha-schedule-timer-cards] removed superseded blueprint bridge:", cid);
         } catch (e) {
-          console.warn("[schedule-ui] could not remove legacy bridge", cid, e);
+          console.warn("[ha-schedule-timer-cards] could not remove legacy bridge", cid, e);
         }
       }
     } catch (e) {
-      console.warn("[schedule-ui] legacy bridge cleanup skipped:", e);
+      console.warn("[ha-schedule-timer-cards] legacy bridge cleanup skipped:", e);
     }
   }
 
