@@ -22,6 +22,7 @@
 - [사용 방법](#사용-방법)
 - [설정](#설정)
 - [동작 원리](#동작-원리)
+- [문제 해결](#문제-해결)
 - [개발](#개발)
 - [기여](#기여)
 - [라이선스](#라이선스)
@@ -57,8 +58,9 @@
 2. **설정 → 대시보드 → 리소스**에서 `/local/timer-schedule-card.js`를 `JavaScript Module` 유형으로 추가합니다.
 
 > **모바일/Companion 앱 캐시:** HA의 service worker가 새로고침 후에도 이전 번들을
-> 그대로 들고 있는 경우가 있습니다. 리소스 URL 뒤에 `?v=1.4.2`처럼 쿼리스트링을
->달고 릴리스마다 숫자를 올리면 강제로 다시 받습니다.
+> 그대로 들고 있는 경우가 있습니다. 리소스 URL 뒤에 `?v=1.6.0`처럼 쿼리스트링을
+> 달고 릴리스마다 값을 올리면 강제로 다시 받습니다. 업데이트 직후 카드가 사라지면
+> 아래 [문제 해결](#문제-해결)을 참고하세요.
 >
 > **권한:** **자동 생성 마법사**는 관리자 전용 HA API
 > (`schedule/create`, `timer/create`, `config/automation/config/*`)를 호출합니다.
@@ -111,6 +113,52 @@ schedule.my_device OFF → 대상 기기 turn_off
 ```
 
 밝기, 색상, 온도 등 추가 조건이 필요하면 **설정 → 자동화**에서 생성된 자동화를 직접 수정합니다.
+
+## 문제 해결
+
+### 업데이트 후 "Custom element doesn't exist: ha-custom-turn-on-card" / "구성 오류"
+
+네 종류의 카드(`schedule`, `timer`, `turn-on`, `turn-off`)는 모두 **하나의** 파일
+`timer-schedule-card.js`로 배포됩니다. 새 릴리스에서 카드(custom element)가 추가되면,
+HA의 service worker(와 Companion 앱 WebView)가 **같은 URL**의 이전 번들을 캐시에서
+계속 제공하기 때문에 새 element를 찾지 못하고 *"Custom element doesn't exist"* 또는
+*구성 오류* 카드가 표시됩니다. 기존 카드와 다른 제작자의 카드는 정상 동작하며, 방금
+추가된 element만 나타나지 않습니다.
+
+**해결 방법 (수동 설치):**
+
+1. **리소스 버전 올리기.** **설정 → 대시보드 → 리소스**에서 `timer-schedule-card.js`
+   항목을 편집해 쿼리스트링을 새 릴리스 버전으로 변경합니다. 예:
+   `/local/timer-schedule-card.js?v=1.6.0`. `?v=` 값은 *바뀌기만* 하면 되지만,
+   릴리스 버전과 맞추면 관리하기 편합니다.
+2. **Home Assistant 재시작** (또는 대시보드 새로고침) — 새 리소스 URL이 적용됩니다.
+3. **브라우저 강력 새로고침** — `Ctrl`+`F5` / `Ctrl`+`Shift`+`R` (Windows/Linux),
+   `Cmd`+`Shift`+`R` (macOS).
+4. **Companion 앱 프런트엔드 캐시 초기화** — 모바일/데스크톱 앱을 쓴다면 위의 강력
+   새로고침으로는 앱 WebView 캐시까지 비워지지 않으므로 따로 초기화해야 합니다.
+   - **iOS:** App Settings → Companion App → Debug → **Reset frontend cache**.
+   - **Android:** 설정 → Companion App → Troubleshooting → **Reset frontend cache**.
+   - **macOS:** 메뉴 막대 아이콘 → Preferences → Debugging → **Reset frontend cache**.
+5. **로드된 버전 확인.** 브라우저 개발자 콘솔(또는 앱 디버그 로그)을 열어 배너가 새
+   버전을 표시하는지 확인합니다.
+
+   ```text
+   [schedule-ui] v1.6.0 loaded
+   ```
+
+   배너가 여전히 이전 버전이면 캐시가 남아 있는 것이니 캐시 초기화를 다시 진행하세요.
+   배너가 방금 설치한 릴리스와 일치하면 새 카드 타입이 정상 인식됩니다.
+
+> **HACS 설치는 자동으로 보호됩니다 — `?v=` 변경 불필요.** HACS는 리소스를
+> `/hacsfiles/ha-schedule-timer-cards/timer-schedule-card.js?hacstag=…`
+> 형태로 등록합니다 (`hacstag`는 설치된 버전에 따라 바뀌는 숫자 캐시버스터이며,
+> *콘텐츠 해시가 아닙니다*). 버전이 바뀌면 이 태그도 바뀌므로 **HACS 업데이트마다 리소스
+> URL이 자동으로 다시 쓰여**, 브라우저가 완전히 새로운 URL을 보고 강제로 다시
+> 받습니다. 따라서 HACS 사용자는 3~4단계(강력 새로고침 / Companion 프런트엔드
+> 캐시 초기화)만 하면 되고 1단계는 건너뛰면 됩니다. 단, 이 자동 갱신은
+> **storage 모드** Lovelace에서만 동작합니다. **YAML 모드** Lovelace를 쓴다면
+> HACS가 리소스를 관리하지 못하므로, 수동 설치와 동일하게 `/hacsfiles/...` URL의
+> 버전을 직접 올려야 합니다.
 
 ## 개발
 

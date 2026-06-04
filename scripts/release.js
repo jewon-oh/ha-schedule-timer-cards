@@ -11,8 +11,9 @@
 //   1. Validates the working tree (must be clean, branch must be master).
 //   2. Computes the next version from the bump arg (or accepts an explicit
 //      X.Y.Z[-pre] string).
-//   3. Writes the new version into package.json and the runtime banner in
-//      src/timer-schedule-card.ts.
+//   3. Writes the new version into package.json, the runtime banner in
+//      src/timer-schedule-card.ts, and the dev-loader cache-buster
+//      (frontend.extra_module_url ?v=) in ha-config/configuration.yaml.
 //   4. Runs pnpm run build + pnpm run smoke to make sure the bump bundles.
 //   5. Stages the changed files, commits as "release: vX.Y.Z", tags vX.Y.Z.
 //   6. (Optional, --push) pushes both master and the tag to origin, which
@@ -26,6 +27,7 @@ const { execSync } = require("child_process");
 const ROOT = path.resolve(__dirname, "..");
 const PKG = path.join(ROOT, "package.json");
 const ENTRY = path.join(ROOT, "src/timer-schedule-card.ts");
+const HA_CONFIG = path.join(ROOT, "ha-config/configuration.yaml");
 
 function sh(cmd, opts = {}) {
   return execSync(cmd, { cwd: ROOT, stdio: "pipe", encoding: "utf-8", ...opts }).trim();
@@ -93,6 +95,17 @@ if (!bannerRe.test(entryText)) abort(`banner string not found in ${path.relative
 fs.writeFileSync(ENTRY, entryText.replace(bannerRe, `$1${next}$2`));
 console.log(`✓ src banner @ v${next}`);
 
+// Keep the local dev-loader cache-buster (frontend.extra_module_url ?v=)
+// pinned to the release version so the bundled HA test bench always re-fetches
+// the bundle after a bump — same single-source-of-truth as the banner above.
+const haConfigText = fs.readFileSync(HA_CONFIG, "utf-8");
+const stampRe = /(\/local\/timer-schedule-card\.js\?v=)\d+\.\d+\.\d+[^\s"']*/;
+if (!stampRe.test(haConfigText)) {
+  abort(`?v= stamp not found in ${path.relative(ROOT, HA_CONFIG)}`);
+}
+fs.writeFileSync(HA_CONFIG, haConfigText.replace(stampRe, `$1${next}`));
+console.log(`✓ ha-config ?v= @ ${next}`);
+
 // ── build + smoke ───────────────────────────────────────────────────────
 console.log("→ pnpm run build");
 shInherit("pnpm run build");
@@ -100,7 +113,7 @@ console.log("→ pnpm run smoke");
 shInherit("pnpm run smoke");
 
 // ── commit + tag ────────────────────────────────────────────────────────
-shInherit(`git add package.json src/timer-schedule-card.ts timer-schedule-card.js`);
+shInherit(`git add package.json src/timer-schedule-card.ts timer-schedule-card.js ha-config/configuration.yaml`);
 shInherit(`git commit -m "release: v${next}"`);
 shInherit(`git tag v${next}`);
 console.log(`✓ tagged v${next} locally`);
