@@ -172,10 +172,10 @@ class HaCustomScheduleCard extends LitElement {
         });
         if (regEntry && regEntry.unique_id) {
           storageId = regEntry.unique_id;
-          console.log("[schedule-ui] entity registry → unique_id:", storageId);
+          console.log("[ha-schedule-timer-cards] entity registry → unique_id:", storageId);
         }
       } catch (regErr) {
-        console.warn("[schedule-ui] entity registry 조회 실패, slug 사용:", entitySlug, regErr);
+        console.warn("[ha-schedule-timer-cards] entity registry 조회 실패, slug 사용:", entitySlug, regErr);
       }
       
       // 1차: storage id(unique_id)로 매칭
@@ -195,9 +195,9 @@ class HaCustomScheduleCard extends LitElement {
         }
       }
       
-      console.log("[schedule-ui] loadSchedule - entity:", entityId, "storageId:", storageId, "matched:", match ? match.id : "NONE");
+      console.log("[ha-schedule-timer-cards] loadSchedule - entity:", entityId, "storageId:", storageId, "matched:", match ? match.id : "NONE");
       if (!match && result.length > 0) {
-        console.warn("[schedule-ui] 매칭 실패! available ids:", result.map(s => `${s.id}(${s.name})`));
+        console.warn("[ha-schedule-timer-cards] 매칭 실패! available ids:", result.map(s => `${s.id}(${s.name})`));
       }
 
       if (match) {
@@ -205,7 +205,7 @@ class HaCustomScheduleCard extends LitElement {
         this._hydrateFromSchedule(match);
       }
     } catch (e) {
-      console.error("[schedule-ui] Failed to load schedules", e);
+      console.error("[ha-schedule-timer-cards] Failed to load schedules", e);
     }
   }
 
@@ -258,7 +258,7 @@ class HaCustomScheduleCard extends LitElement {
     // (rawUnion의 unique 개수가 merged보다 많으면 겹침이 있었다는 뜻.)
     const uniqueRaw = new Set(rawUnion.map(b => `${b.from}~${b.to}`)).size;
     if (uniqueRaw > merged.length) {
-      console.warn("[schedule-ui] hydrate: merged overlapping blocks", { rawUnique: uniqueRaw, merged: merged.length });
+      console.warn("[ha-schedule-timer-cards] hydrate: merged overlapping blocks", { rawUnique: uniqueRaw, merged: merged.length });
       // 다음 update 시점에 자동으로 정리된 데이터가 서버에 반영된다.
     }
   }
@@ -279,7 +279,7 @@ class HaCustomScheduleCard extends LitElement {
         updatePayload[WEEKDAYS[i]] = activeSet.has(i) ? sortedBlocks : [];
       }
 
-      console.log("[schedule-ui] updateSchedule - schedule_id:", scheduleId,
+      console.log("[ha-schedule-timer-cards] updateSchedule - schedule_id:", scheduleId,
         "activeDays:", this._activeDays, "blocks:", sortedBlocks);
 
       await this._hass.callWS({
@@ -289,7 +289,7 @@ class HaCustomScheduleCard extends LitElement {
       });
       await this._loadSchedule();
     } catch (e) {
-      console.error("[schedule-ui] updateSchedule FAILED:", e);
+      console.error("[ha-schedule-timer-cards] updateSchedule FAILED:", e);
       // schedule/update requires write access to the schedule helper, which
       // ships as admin-only by default in HA. Surface a translated, friendly
       // message instead of dumping the raw 401 / "unauthorized" string.
