@@ -384,7 +384,7 @@ class HaCustomTurnOnCard extends LitElement {
         if (!slc?.times?.length) return null;
         const days = slc.weekdays && slc.weekdays.length < 7
           ? [...slc.weekdays].sort((a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b))
-              .map((d) => short[WEEKDAYS.indexOf(d)]).join(this._lang === "ko" ? "" : " ") + " "
+              .map((d) => short[WEEKDAYS.indexOf(d)]).join(this._lang === "ko" ? "," : " ") + " "
           : "";
         return `${label} ${days}${slc.times.map((t) => t.slice(0, 5)).join(",")}`;
       };
