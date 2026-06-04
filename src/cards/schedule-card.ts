@@ -1267,5 +1267,5 @@ window.customCards.push({
   name: LOCALES[detectLang()].cardName,
   preview: true,
   description: LOCALES[detectLang()].cardDescription,
-  documentationURL: "https://github.com/jewon-oh/schedule-ui",
+  documentationURL: "https://github.com/jewon-oh/ha-schedule-timer-cards",
 });

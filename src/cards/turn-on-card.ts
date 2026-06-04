@@ -870,14 +870,14 @@ window.customCards.push({
   name: TURN_ON_LOCALES[_lang].cardNameTurnOn,
   preview: true,
   description: TURN_ON_LOCALES[_lang].cardDescriptionTurnOn,
-  documentationURL: "https://github.com/jewon-oh/schedule-ui",
+  documentationURL: "https://github.com/jewon-oh/ha-schedule-timer-cards",
 });
 window.customCards.push({
   type: "ha-custom-turn-off-card",
   name: TURN_ON_LOCALES[_lang].cardNameTurnOff,
   preview: true,
   description: TURN_ON_LOCALES[_lang].cardDescriptionTurnOff,
-  documentationURL: "https://github.com/jewon-oh/schedule-ui",
+  documentationURL: "https://github.com/jewon-oh/ha-schedule-timer-cards",
 });
 
 // Export the constants if other modules want them (e.g., editor for tag matching).
