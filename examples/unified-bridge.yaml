@@ -1,0 +1,87 @@
+# Unified per-device "schedule bridge" — the single automation that the
+# schedule, turn-on AND turn-off cards all read and write for ONE device
+# (introduced to consolidate the previously separate schedule / turn-on /
+# turn-off automations into one).
+#
+# config_id: sui_bridge_<device_entity_id_with_dots_as_underscores>
+#   e.g. switch.living_room -> sui_bridge_switch_living_room
+#
+# The automation carries three INDEPENDENT, trigger-id-tagged slices feeding a
+# single `choose` action, so each card edits only its own slice:
+#   - schedule slice : sui_sched_on / sui_sched_off / sui_sync  (helper state)
+#   - turn-on slice  : sui_on   (discrete ON times, per-weekday)
+#   - turn-off slice : sui_off  (discrete OFF times, per-weekday)
+#
+# Weekday gates live ONLY inside each branch's time-arm (never top-level), so a
+# weekday restriction on the turn-on times never gates the schedule/sync arms.
+# This file is illustrative; the cards generate it for you.
+
+alias: "Living Room Light Schedule"
+description: "[schedule-ui:bridge] Living Room Light"
+mode: queued
+trigger:
+  # schedule slice (present only when a schedule card is linked)
+  - platform: state
+    entity_id: schedule.living_room_light_x
+    to: "on"
+    id: sui_sched_on
+  - platform: state
+    entity_id: schedule.living_room_light_x
+    to: "off"
+    id: sui_sched_off
+  - platform: homeassistant
+    event: start
+    id: sui_sync
+  # turn-on slice
+  - platform: time
+    at: "07:00:00"
+    id: sui_on
+  - platform: time
+    at: "08:30:00"
+    id: sui_on
+  # turn-off slice
+  - platform: time
+    at: "23:00:00"
+    id: sui_off
+condition: []
+action:
+  - choose:
+      # ON branch: schedule entered, OR HA-start while schedule on, OR an ON
+      # time fired on an allowed weekday.
+      - conditions:
+          - or:
+              - condition: trigger
+                id: sui_sched_on
+              - and:
+                  - condition: trigger
+                    id: sui_sync
+                  - condition: state
+                    entity_id: schedule.living_room_light_x
+                    state: "on"
+              - and:
+                  - condition: trigger
+                    id: sui_on
+                  - condition: time
+                    weekday: [mon, tue, wed, thu, fri]
+        sequence:
+          - service: homeassistant.turn_on
+            target:
+              entity_id: switch.living_room
+      # OFF branch: schedule ended, OR HA-start while schedule off, OR an OFF
+      # time fired on an allowed weekday.
+      - conditions:
+          - or:
+              - condition: trigger
+                id: sui_sched_off
+              - and:
+                  - condition: trigger
+                    id: sui_sync
+                  - condition: state
+                    entity_id: schedule.living_room_light_x
+                    state: "off"
+              - condition: trigger
+                id: sui_off
+        sequence:
+          - service: homeassistant.turn_off
+            target:
+              entity_id: switch.living_room
