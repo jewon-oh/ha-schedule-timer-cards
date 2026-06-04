@@ -105,14 +105,27 @@ title: 거실 전등 일정                  # 카드 제목 (선택)
 
 ## 동작 원리
 
-마법사로 생성된 자동화는 `config/automation/config/{schedule_bridge_ID}`에 저장됩니다.
+스케쥴·켜기·끄기 카드는 **기기당 자동화 하나**(*통합 브릿지*)를 공유합니다.
+`config/automation/config/sui_bridge_<기기>` 에 저장됩니다 (예:
+`switch.living_room` → `sui_bridge_switch_living_room`). 각 카드는 트리거 `id`로
+구분되는 **자기 슬라이스만** 편집합니다:
 
 ```text
-schedule.my_device ON  → 대상 기기 turn_on
-schedule.my_device OFF → 대상 기기 turn_off
+sui_sched_on / sui_sched_off / sui_sync   → 스케쥴 헬퍼 on/off (+ HA 재시작 재동기화)
+sui_on   → 켜기 시각 (요일별)
+sui_off  → 끄기 시각 (요일별)
 ```
 
-밝기, 색상, 온도 등 추가 조건이 필요하면 **설정 → 자동화**에서 생성된 자동화를 직접 수정합니다.
+단일 `choose` 액션이 기기를 켜거나 끄며, 요일 조건은 각자의 시각 슬라이스에만
+적용됩니다. 전체 형태는 [examples/unified-bridge.yaml](examples/unified-bridge.yaml)을
+참고하세요. 밝기·색상·온도 등 추가 조정이 필요하면 **설정 → 자동화**에서 생성된
+자동화를 직접 수정합니다.
+
+> **마이그레이션:** 기존에 따로 만들어진 자동화는 그대로 동작합니다. 어떤 기기에
+> 스케쥴 마법사를 다시 실행하면 통합 브릿지로 업그레이드되고, 그 기기의 기존
+> 자동 생성 blueprint 브릿지는 이중 구동을 막기 위해 제거됩니다. 기존 단독
+> 켜기/끄기 자동화는 카드 에디터 마법사로 다시 연결하기 전까지 원래(flat) 형태를
+> 유지합니다.
 
 ## 문제 해결
 

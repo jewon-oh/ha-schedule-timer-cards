@@ -1,17 +1,7 @@
 // @ts-nocheck
 import { LitElement, html, css } from "lit";
 import { TURN_ON_LOCALES } from "../locales/index.js";
-
-// Mirrors TAG_BY_MODE in turn-on-card.ts. Kept inline to avoid a runtime
-// import dependency between editor and card.
-const TAG_BY_MODE = {
-  turn_on: "[schedule-ui:turn-on]",
-  turn_off: "[schedule-ui:turn-off]",
-};
-const SERVICE_BY_MODE = {
-  turn_on: "homeassistant.turn_on",
-  turn_off: "homeassistant.turn_off",
-};
+import { deviceBridgeId, isUnified, readSlices, buildUnified, emptySlices } from "../shared/bridge.js";
 
 class HaCustomTurnOnCardEditor extends LitElement {
   static properties = {
@@ -64,9 +54,11 @@ class HaCustomTurnOnCardEditor extends LitElement {
     this.dispatchEvent(event);
   }
 
-  // The wizard creates a brand-new automation per device pick. We avoid
-  // collisions with previous picks (and with other unrelated automations)
-  // by suffixing the storage_id with a base36 timestamp.
+  // The wizard upserts the ONE shared per-device bridge automation
+  // (sui_bridge_<device>). If a sibling card (turn-off, or the schedule card)
+  // already created it, we reuse it and only ensure our (empty) slice + the
+  // target are present; otherwise we create a fresh unified skeleton. Times
+  // are edited in the card itself.
   async _onWizardDevicePicker(ev) {
     const targetEntityId = ev.detail.value;
     if (this._isCreating || !this.hass || !targetEntityId) return;
@@ -75,30 +67,30 @@ class HaCustomTurnOnCardEditor extends LitElement {
     const entityObj = this.hass.states[targetEntityId];
     const friendly = entityObj?.attributes?.friendly_name || targetEntityId.split('.')[1] || this._t("unknownDevice");
     const alias = `${friendly}${this._tm("routineSuffix")}`;
-    const slug = targetEntityId.split('.')[1] || "device";
-    // Prefix the automation config_id with the mode so users browsing the
-    // HA automations page can tell them apart at a glance.
-    const idPrefix = mode === "turn_off" ? "turn_off" : "turn_on";
-    const automationId = `${idPrefix}_${slug}_${Date.now().toString(36)}`;
+    const automationId = deviceBridgeId(targetEntityId);
 
     this._isCreating = true;
     this._createResult = null;
     this.requestUpdate();
 
     try {
-      const automationPayload = {
-        alias,
-        description: `${TAG_BY_MODE[mode]} ${friendly}`,
-        // No triggers yet — user adds times in the card itself.
-        trigger: [],
-        condition: [],
-        action: [{
-          service: SERVICE_BY_MODE[mode],
-          target: { entity_id: targetEntityId },
-        }],
-        mode: "single",
-      };
-      await this.hass.callApi("POST", `config/automation/config/${automationId}`, automationPayload);
+      // Reuse an existing unified bridge for this device if present, else
+      // build a fresh skeleton. Either way buildUnified is the single writer.
+      let existing = null;
+      try {
+        existing = await this.hass.callApi("GET", `config/automation/config/${automationId}`);
+      } catch (e) { /* not created yet — fall through to skeleton */ }
+
+      let payload;
+      if (existing && isUnified(existing)) {
+        const slices = readSlices(existing);
+        if (!slices.target) slices.target = targetEntityId;
+        if (!slices.friendly) slices.friendly = friendly;
+        payload = buildUnified(slices, existing);
+      } else {
+        payload = buildUnified(emptySlices({ target: targetEntityId, friendly, alias }));
+      }
+      await this.hass.callApi("POST", `config/automation/config/${automationId}`, payload);
       // HA assigns an entity_id from the alias slug, not from our config_id —
       // the picker UI only recognizes entity_ids, so store that. The card's
       // load path resolves entity_id → unique_id at API call time, mirroring

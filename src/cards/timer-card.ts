@@ -545,8 +545,8 @@ class HaCustomTimerCard extends LitElement {
     }
 
     .action-pill.selected.off {
-      background: var(--custom-secondary);
-      color: var(--card-background-color, #1c1c1c);
+      background: var(--custom-danger);
+      color: #fff;
     }
 
     .action-pill:disabled {
