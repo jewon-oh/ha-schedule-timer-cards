@@ -22,6 +22,6 @@ import "./cards/timer-card.js";
 import "./cards/turn-on-card.js";
 
 console.log(
-  "%c[schedule-ui] v1.6.2 loaded",
+  "%c[schedule-ui] v1.7.0 loaded",
   "color: #03a9f4; font-weight: bold; font-size: 14px;",
 );
