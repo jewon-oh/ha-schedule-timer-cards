@@ -90,7 +90,7 @@ fs.writeFileSync(PKG, JSON.stringify(pkg, null, 2) + "\n");
 console.log(`✓ package.json @ ${next}`);
 
 const entryText = fs.readFileSync(ENTRY, "utf-8");
-const bannerRe = /(%c\[schedule-ui\] v)\d+\.\d+\.\d+[^\s"]*( loaded)/;
+const bannerRe = /(%c\[ha-schedule-timer-cards\] v)\d+\.\d+\.\d+[^\s"]*( loaded)/;
 if (!bannerRe.test(entryText)) abort(`banner string not found in ${path.relative(ROOT, ENTRY)}`);
 fs.writeFileSync(ENTRY, entryText.replace(bannerRe, `$1${next}$2`));
 console.log(`✓ src banner @ v${next}`);
