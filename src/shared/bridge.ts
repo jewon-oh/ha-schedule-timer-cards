@@ -115,8 +115,9 @@ function branchWeekdays(branch, modeId) {
     if (Array.isArray(arm?.and)) {
       const hasTrig = arm.and.some((s) => s?.condition === "trigger" && idMatches(s.id, modeId));
       if (hasTrig) {
-        const wd = arm.and.find((s) => s?.condition === "time" && Array.isArray(s.weekday));
-        return wd ? sortWeekdays(wd.weekday) : [...WEEKDAYS];
+        const wd = arm.and.find((s) => s?.condition === "time" && s.weekday != null);
+        if (!wd) return [...WEEKDAYS];
+        return sortWeekdays(Array.isArray(wd.weekday) ? wd.weekday : [wd.weekday]);
       }
     }
   }
@@ -266,4 +267,147 @@ export function emptySlices({ target, friendly, alias }) {
     off: { times: [], weekdays: [...WEEKDAYS] },
     schedule: { entity: null },
   };
+}
+
+// Description tags written by the OLD standalone turn-on/turn-off wizards
+// (pre-unified-bridge). Used to recognise a device's legacy automations so the
+// wizard can migrate their times into the unified bridge and remove them.
+export const LEGACY_TURN_TAGS = ["[schedule-ui:turn-on]", "[schedule-ui:turn-off]"];
+
+function sameWeekdays(a, b) {
+  const x = sortWeekdays(a);
+  const y = sortWeekdays(b);
+  return x.length === y.length && x.every((d, i) => d === y[i]);
+}
+
+// Parse a LEGACY flat turn-on/turn-off automation (no choose, no sui_* ids)
+// into a single slice, with enough metadata for the caller to decide whether
+// it is SAFE to migrate-and-delete. The wizard must only delete an automation
+// that exactly matches the auto-generated standalone shape and whose behaviour
+// is fully captured here — otherwise it would destroy user data.
+//
+// `fullyCaptured` is true ONLY when the automation is a plain single-action
+// turn_on/turn_off on exactly one entity, driven solely by parseable `time`
+// triggers. Anything else (sun/template triggers, extra actions, multiple or
+// non-entity targets, no times) → fullyCaptured=false → caller skips it.
+export function readLegacySlice(cfg) {
+  // POSITIVE WHITELIST: `pristine` stays true only if EVERY part of the
+  // automation matches exactly the shape our generator emits, parameterised
+  // solely by (times, weekday set, single target entity). Any deviation — a
+  // non-literal/entity `at`, a disabled trigger/condition/automation, a guard
+  // or time-window condition, a non-canonical weekday, extra action keys
+  // (e.g. data:{brightness}), a non-entity or multi target — flips it false,
+  // so the wizard KEEPS (never deletes) anything it cannot fully reproduce.
+  const LITERAL_TIME = /^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/; // valid HH:MM[:SS] only
+  let pristine = cfg?.enabled !== false;
+
+  // Triggers: ≥1, all enabled literal `time` triggers, only known keys.
+  const triggers = triggerList(cfg);
+  const times = [];
+  if (triggers.length === 0) pristine = false;
+  const TRIG_KEYS = new Set(["platform", "trigger", "at", "id"]);
+  for (const t of triggers) {
+    const isTime = t?.platform === "time" || t?.trigger === "time";
+    if (!isTime || t?.enabled === false) { pristine = false; continue; }
+    if (t && Object.keys(t).some((k) => !TRIG_KEYS.has(k))) pristine = false;
+    const ats = Array.isArray(t.at) ? t.at : typeof t.at === "string" ? [t.at] : [];
+    if (ats.length === 0) pristine = false;
+    for (const a of ats) {
+      if (typeof a === "string" && LITERAL_TIME.test(a.trim())) times.push(a.trim());
+      else pristine = false; // entity/relative/garbage `at` — not faithfully capturable
+    }
+  }
+
+  // Conditions: NONE (all 7 days) OR exactly one pure canonical weekday
+  // time-condition. Anything else (guard, window, disabled, 2nd arm, bad code).
+  const conds = Array.isArray(cfg?.condition)
+    ? cfg.condition
+    : Array.isArray(cfg?.conditions)
+      ? cfg.conditions
+      : [];
+  let weekdays = null;
+  if (conds.length > 1) pristine = false;
+  const COND_KEYS = new Set(["condition", "weekday"]);
+  for (const c of conds) {
+    if (!c || c.condition !== "time" || c.enabled === false) { pristine = false; continue; }
+    if (Object.keys(c).some((k) => !COND_KEYS.has(k)) || c.weekday == null) { pristine = false; continue; }
+    const arr = Array.isArray(c.weekday) ? c.weekday : typeof c.weekday === "string" ? [c.weekday] : null;
+    const parsed = arr ? sortWeekdays(arr) : [];
+    if (!arr || parsed.length === 0 || parsed.length !== arr.length) { pristine = false; continue; } // non-canonical/dup
+    weekdays = parsed;
+  }
+
+  // Action: exactly one turn_on/off on a SINGLE entity, no data/extra keys.
+  const actions = actionList(cfg);
+  let mode = null;
+  let targets = [];
+  if (actions.length !== 1) pristine = false;
+  const ACT_KEYS = new Set(["service", "action", "target"]);
+  for (const a of actions) {
+    const svc = a?.service || a?.action;
+    if (typeof svc === "string" && svc.endsWith(".turn_on")) mode = "turn_on";
+    else if (typeof svc === "string" && svc.endsWith(".turn_off")) mode = "turn_off";
+    else pristine = false;
+    if (a && Object.keys(a).some((k) => !ACT_KEYS.has(k))) pristine = false; // e.g. data:{brightness}
+    const tgt = a?.target || {};
+    if (tgt && Object.keys(tgt).some((k) => k !== "entity_id")) pristine = false; // area/device/label
+    const eid = a?.target?.entity_id;
+    if (Array.isArray(eid)) {
+      if (eid.some((x) => typeof x !== "string")) pristine = false;
+      targets = eid.filter((x) => typeof x === "string");
+    } else if (typeof eid === "string") targets = [eid];
+    else pristine = false;
+    break; // length === 1 already enforced above
+  }
+  if (targets.length !== 1) pristine = false;
+
+  const fullyCaptured = pristine && mode != null && times.length > 0 && targets.length === 1;
+
+  return {
+    mode,
+    target: targets[0] || null,
+    targets,
+    actionCount: actions.length,
+    times: uniqSortTimes(times),
+    weekdays: weekdays && weekdays.length > 0 ? weekdays : [...WEEKDAYS],
+    fullyCaptured,
+  };
+}
+
+// Plan how a set of (already safety-screened) legacy slices merge into the
+// bridge's slices. Pure + total so it can be unit-tested. Returns the updated
+// slices plus which legacy cids are safe to DELETE (fully merged) vs SKIP
+// (kept in place because merging them would lose data — a weekday conflict the
+// single-weekday-per-mode model can't represent). NEVER unions across
+// different weekday sets.
+export function planLegacyMigration(slices, items) {
+  const out = {
+    ...slices,
+    on: { times: [...(slices.on?.times || [])], weekdays: [...(slices.on?.weekdays || WEEKDAYS)] },
+    off: { times: [...(slices.off?.times || [])], weekdays: [...(slices.off?.weekdays || WEEKDAYS)] },
+    schedule: { ...(slices.schedule || { entity: null }) },
+  };
+  const adopted = {};
+  const toDelete = [];
+  const skipped = [];
+  for (const it of items || []) {
+    const slice = it.slice;
+    if (!slice || (slice.mode !== "turn_on" && slice.mode !== "turn_off")) { skipped.push(it.cid); continue; }
+    const key = slice.mode === "turn_off" ? "off" : "on";
+    const cur = out[key];
+    if (!cur.times || cur.times.length === 0) {
+      out[key] = { times: [...slice.times], weekdays: [...slice.weekdays] };
+      adopted[key] = slice.weekdays;
+      toDelete.push(it.cid);
+    } else {
+      const refWd = adopted[key] || cur.weekdays;
+      if (sameWeekdays(refWd, slice.weekdays)) {
+        out[key] = { times: [...new Set([...cur.times, ...slice.times])].sort(), weekdays: refWd };
+        toDelete.push(it.cid);
+      } else {
+        skipped.push(it.cid); // weekday conflict — keep the automation, don't delete
+      }
+    }
+  }
+  return { slices: out, toDelete, skipped };
 }

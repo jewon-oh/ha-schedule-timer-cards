@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { LitElement, html, css } from "lit";
 import { TURN_ON_LOCALES } from "../locales/index.js";
-import { deviceBridgeId, isUnified, readSlices, buildUnified, emptySlices } from "../shared/bridge.js";
+import { deviceBridgeId, isUnified, readSlices, buildUnified, emptySlices, readLegacySlice, planLegacyMigration, LEGACY_TURN_TAGS } from "../shared/bridge.js";
 
 class HaCustomTurnOnCardEditor extends LitElement {
   static properties = {
@@ -81,16 +81,41 @@ class HaCustomTurnOnCardEditor extends LitElement {
         existing = await this.hass.callApi("GET", `config/automation/config/${automationId}`);
       } catch (e) { /* not created yet — fall through to skeleton */ }
 
-      let payload;
-      if (existing && isUnified(existing)) {
-        const slices = readSlices(existing);
-        if (!slices.target) slices.target = targetEntityId;
-        if (!slices.friendly) slices.friendly = friendly;
-        payload = buildUnified(slices, existing);
-      } else {
-        payload = buildUnified(emptySlices({ target: targetEntityId, friendly, alias }));
-      }
+      const slices = existing && isUnified(existing)
+        ? readSlices(existing)
+        : emptySlices({ target: targetEntityId, friendly, alias });
+      if (!slices.target) slices.target = targetEntityId;
+      if (!slices.friendly) slices.friendly = friendly;
+
+      // Migrate this device's OLD standalone turn-on/turn-off automations into
+      // the unified bridge (preserving their times/weekdays). planLegacyMigration
+      // decides which are safe to delete (fully merged) vs must be kept (a
+      // weekday conflict the one-set-per-mode model can't represent). We DELETE
+      // only AFTER the bridge POST succeeds, so a failed write never loses data.
+      const legacy = await this._collectLegacyTurnAutomations(targetEntityId, automationId);
+      const plan = planLegacyMigration(slices, legacy);
+
+      // Only reuse `existing` as the base config when it is genuinely our
+      // unified bridge — never spread an unrelated automation that happens to
+      // occupy this id (would discard its config).
+      const payload = buildUnified(plan.slices, existing && isUnified(existing) ? existing : undefined);
       await this.hass.callApi("POST", `config/automation/config/${automationId}`, payload);
+
+      let removed = 0;
+      let deleteFailed = 0;
+      for (const cid of plan.toDelete) {
+        try {
+          await this.hass.callApi("DELETE", `config/automation/config/${cid}`);
+          removed++;
+          console.log("[turn-on] removed migrated legacy automation:", cid);
+        } catch (e) {
+          deleteFailed++;
+          console.warn("[turn-on] could not remove legacy automation", cid, e);
+        }
+      }
+      if (plan.skipped.length) {
+        console.warn("[turn-on] kept legacy automations (weekday conflict / not auto-migratable):", plan.skipped);
+      }
       // HA assigns an entity_id from the alias slug, not from our config_id —
       // the picker UI only recognizes entity_ids, so store that. The card's
       // load path resolves entity_id → unique_id at API call time, mirroring
@@ -98,7 +123,7 @@ class HaCustomTurnOnCardEditor extends LitElement {
       // gracefully fall back to the config_id; the card supports both.
       const entityId = await this._resolveEntityIdByUniqueId(automationId);
       const stored = entityId || automationId;
-      this._createResult = { success: true, automationId, entityId };
+      this._createResult = { success: true, automationId, entityId, migrated: removed, kept: plan.skipped.length, deleteFailed };
       // Persist the resolved entity_id AND keep the (possibly default)
       // action_mode in the config so reopening the editor stays in the
       // same mode.
@@ -110,6 +135,45 @@ class HaCustomTurnOnCardEditor extends LitElement {
       this._isCreating = false;
       this.requestUpdate();
     }
+  }
+
+  // Find this device's OLD standalone turn-on/turn-off automations (written by
+  // the pre-unified wizard, tagged [schedule-ui:turn-on]/[schedule-ui:turn-off])
+  // so the caller can migrate their slices into the unified bridge and then
+  // delete them. Strictly scoped: our tag AND an action targeting THIS device;
+  // never a unified bridge (keepId or any choose/sui_* automation).
+  async _collectLegacyTurnAutomations(targetEntityId, keepId) {
+    const found = [];
+    try {
+      const autos = Object.values(this.hass.states || {})
+        .filter((s) => typeof s.entity_id === "string" && s.entity_id.startsWith("automation."));
+      for (const st of autos) {
+        const cid = st.attributes?.id;
+        if (!cid || cid === keepId) continue;
+        let cfg;
+        try {
+          cfg = await this.hass.callApi("GET", `config/automation/config/${cid}`);
+        } catch (e) { continue; }
+        if (isUnified(cfg)) continue;
+        // Require the description to START WITH our tag (a stray mention must
+        // never qualify), and the automation to exactly match the
+        // auto-generated standalone shape (single time-driven turn_on/off on
+        // EXACTLY this one entity). Anything hand-edited/ambiguous is skipped.
+        const desc = (typeof cfg?.description === "string" ? cfg.description : "").trim();
+        const tag = LEGACY_TURN_TAGS.find((t) => desc.startsWith(t));
+        if (!tag) continue;
+        const tagMode = tag === "[schedule-ui:turn-off]" ? "turn_off" : "turn_on";
+        const slice = readLegacySlice(cfg);
+        // require the action's mode to match the tag, the shape to be exactly
+        // ours (fullyCaptured), and the target to be precisely this one device.
+        if (!slice.fullyCaptured || slice.mode !== tagMode) continue;
+        if (slice.targets.length !== 1 || slice.targets[0] !== targetEntityId) continue;
+        found.push({ cid, slice });
+      }
+    } catch (e) {
+      console.warn("[turn-on] legacy automation scan skipped:", e);
+    }
+    return found;
   }
 
   _onModeChanged(ev) {
@@ -177,6 +241,16 @@ class HaCustomTurnOnCardEditor extends LitElement {
                 <ha-icon icon="mdi:check-circle"></ha-icon>
                 <span>${this._createResult.automationId} — ${this._t("editorCreateSuccess")}</span>
               </div>
+              ${(this._createResult.kept || this._createResult.deleteFailed) ? html`
+                <div class="migrate-warn">
+                  <ha-icon icon="mdi:alert"></ha-icon>
+                  <span>${this._t("migrateLeftover")}
+                    ${this._createResult.migrated ? html`· ✓ ${this._createResult.migrated}` : ''}
+                    ${this._createResult.kept ? html`· ⏭ ${this._createResult.kept}` : ''}
+                    ${this._createResult.deleteFailed ? html`· ✗ ${this._createResult.deleteFailed}` : ''}
+                  </span>
+                </div>
+              ` : ''}
             ` : ''}
             ${this._createResult && !this._createResult.success ? html`
               <div class="error-msg">${this._t("editorErrorPrefix")}${this._createResult.message}</div>
@@ -322,6 +396,15 @@ class HaCustomTurnOnCardEditor extends LitElement {
       color: var(--error-color, #f44336);
       font-size: 0.9rem;
     }
+    .migrate-warn {
+      margin-top: 8px;
+      color: var(--warning-color, #ff9800);
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .migrate-warn ha-icon { --mdc-icon-size: 18px; }
     .divider {
       height: 1px;
       background: var(--divider-color, rgba(100,100,100,0.2));
