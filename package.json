@@ -1,6 +1,6 @@
 {
   "name": "ha-schedule-timer-cards",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "packageManager": "pnpm@11.2.2",
   "description": "Home Assistant Lovelace custom cards for schedule and timer helpers, with auto-generated automation bridges.",
   "main": "timer-schedule-card.js",
