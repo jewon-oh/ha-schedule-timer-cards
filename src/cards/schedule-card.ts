@@ -263,6 +263,29 @@ class HaCustomScheduleCard extends LitElement {
     }
   }
 
+  // Optional integration: if an `input_text` named `sui_sched_<device>` exists
+  // (toggle_entity slugified), mirror a compact weekly-block summary into it on
+  // every save (e.g. "월화수목금 09:00-10:00, 20:45-21:45"), so the schedule can
+  // be shown outside the card (schedule helpers don't expose blocks to
+  // templates). Silent no-op when the helper is absent.
+  async _mirrorScheduleSummary() {
+    try {
+      const dev = this._config?.toggle_entity;
+      if (!this._hass || !dev) return;
+      const short = this._t("daysShort");
+      const days = this._activeDays || [];
+      const daysStr = days.length === 7
+        ? (this._lang === "ko" ? "매일" : "Daily")
+        : [...days].sort((a, b) => a - b).map((i) => short[i]).join(this._lang === "ko" ? "" : " ");
+      const ranges = (this._blocks || []).map((b) => `${b.from.slice(0, 5)}-${b.to.slice(0, 5)}`).join(", ");
+      const txt = ranges ? (daysStr ? `${daysStr} ${ranges}` : ranges) : "";
+      const ent = "input_text.sui_sched_" + String(dev).replace(/[^a-z0-9_]+/gi, "_").toLowerCase();
+      await this._hass.callService("input_text", "set_value", { entity_id: ent, value: txt.slice(0, 255) });
+    } catch (e) {
+      /* optional helper not present / not writable — ignore */
+    }
+  }
+
   async _updateSchedule() {
     if (!this._hass || !this._scheduleData) return;
     this._isEditing = true;
@@ -288,6 +311,7 @@ class HaCustomScheduleCard extends LitElement {
         ...updatePayload,
       });
       await this._loadSchedule();
+      this._mirrorScheduleSummary();
     } catch (e) {
       console.error("[ha-schedule-timer-cards] updateSchedule FAILED:", e);
       // schedule/update requires write access to the schedule helper, which
