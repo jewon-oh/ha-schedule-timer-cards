@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { LitElement, html, css } from "lit";
 import { TURN_ON_LOCALES, detectLang } from "../locales/index.js";
+import { isUnified, readSlices, buildUnified, modeSliceKey } from "../shared/bridge.js";
 
 // HA weekday codes used by `condition: time` — Monday-first to match the
 // rest of the schedule-ui cards. Order is load-bearing: this array's index
@@ -207,6 +208,19 @@ class HaCustomTurnOnCard extends LitElement {
   // missing pieces (a freshly-created automation may have no triggers yet)
   // by falling back to sensible defaults.
   _hydrateFromAutomation(cfg) {
+    // Unified per-device bridge: read ONLY this mode's slice (id-tagged time
+    // triggers + this mode's choose branch). The schedule and other-mode
+    // slices live in the same automation but are not ours to touch.
+    if (isUnified(cfg)) {
+      const slices = readSlices(cfg);
+      const mine = slices[modeSliceKey(this._actionMode)];
+      this._times = [...new Set(mine.times)].sort();
+      this._weekdays = mine.weekdays && mine.weekdays.length > 0 ? mine.weekdays : [...WEEKDAYS];
+      this._target = slices.target;
+      return;
+    }
+
+    // Legacy single-mode automation (flat trigger/condition/action).
     const triggers = Array.isArray(cfg?.trigger) ? cfg.trigger
       : (Array.isArray(cfg?.triggers) ? cfg.triggers : []);
     const times = [];
@@ -302,25 +316,42 @@ class HaCustomTurnOnCard extends LitElement {
     this._isSaving = true;
     try {
       const sortedTimes = [...new Set(this._times)].sort();
-      const trigger = sortedTimes.map(t => ({ platform: "time", at: t }));
-      const conditionList = this._weekdays.length === 7
-        ? [] // all 7 days → no condition needed
-        : [{ condition: "time", weekday: [...this._weekdays].sort((a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b)) }];
-      const action = [{
-        service: SERVICE_BY_MODE[this._actionMode] || SERVICE_BY_MODE.turn_on,
-        target: { entity_id: this._target },
-      }];
+      const sortedWeekdays = [...this._weekdays].sort((a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b));
 
-      const newCfg = {
-        ...this._automationConfig,
-        trigger,
-        condition: conditionList,
-        action,
-      };
-      // Drop the modern aliases so we don't ship duplicate keys.
-      delete newCfg.triggers;
-      delete newCfg.conditions;
-      delete newCfg.actions;
+      // Fresh GET right before writing so a sibling card (e.g. the turn-off
+      // card editing the SAME unified bridge) is never clobbered — HA has no
+      // optimistic concurrency, so we must not trust the cached config.
+      let cfg = this._automationConfig;
+      try {
+        cfg = await this._hass.callApi("GET", `config/automation/config/${this._automationId}`);
+      } catch (e) {
+        console.warn("[turn-on] pre-save GET failed, using cached config:", e);
+      }
+
+      let newCfg;
+      if (isUnified(cfg)) {
+        // Override only our slice; readSlices+buildUnified preserve the
+        // schedule slice and the other mode's slice verbatim.
+        const slices = readSlices(cfg);
+        slices[modeSliceKey(this._actionMode)] = { times: sortedTimes, weekdays: sortedWeekdays };
+        if (!slices.target) slices.target = this._target;
+        newCfg = buildUnified(slices, cfg);
+      } else {
+        // Legacy single-mode automation — keep its flat shape.
+        const trigger = sortedTimes.map(t => ({ platform: "time", at: t }));
+        const conditionList = this._weekdays.length === 7
+          ? [] // all 7 days → no condition needed
+          : [{ condition: "time", weekday: sortedWeekdays }];
+        const action = [{
+          service: SERVICE_BY_MODE[this._actionMode] || SERVICE_BY_MODE.turn_on,
+          target: { entity_id: this._target },
+        }];
+        newCfg = { ...cfg, trigger, condition: conditionList, action };
+        // Drop the modern aliases so we don't ship duplicate keys.
+        delete newCfg.triggers;
+        delete newCfg.conditions;
+        delete newCfg.actions;
+      }
 
       await this._hass.callApi("POST", `config/automation/config/${this._automationId}`, newCfg);
       this._automationConfig = newCfg;
