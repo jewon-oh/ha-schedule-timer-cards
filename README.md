@@ -106,14 +106,27 @@ title: Living Room Light               # card title (optional)
 
 ## How It Works
 
-Wizard-generated automations are saved under `config/automation/config/{schedule_bridge_ID}`.
+The schedule, turn-on and turn-off cards all share **one automation per device**
+— a *unified bridge* saved at `config/automation/config/sui_bridge_<device>`
+(e.g. `switch.living_room` → `sui_bridge_switch_living_room`). Each card edits
+only its own slice of that automation, identified by trigger id:
 
 ```text
-schedule.my_device ON  → target device turn_on
-schedule.my_device OFF → target device turn_off
+sui_sched_on / sui_sched_off / sui_sync   → schedule helper on/off (+ HA-start re-sync)
+sui_on   → turn-on times  (per-weekday)
+sui_off  → turn-off times (per-weekday)
 ```
 
-For brightness, color, temperature, or other conditions, edit the generated automation under **Settings → Automations**.
+A single `choose` action turns the device on or off accordingly; weekday gates
+apply only to their own time slice. See [examples/unified-bridge.yaml](examples/unified-bridge.yaml)
+for the full shape. For brightness, color, temperature, or other tweaks, edit
+the generated automation under **Settings → Automations**.
+
+> **Migration:** existing separate automations keep working untouched. Re-running
+> the schedule wizard for a device upgrades it to the unified bridge and removes
+> the device's old auto-generated blueprint bridge so it can't double-drive.
+> Older standalone turn-on/turn-off automations keep their original (flat) shape
+> until you re-link them via the card editor's wizard.
 
 ## Troubleshooting
 

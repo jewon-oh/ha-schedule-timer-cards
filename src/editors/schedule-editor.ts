@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { LitElement, html, css } from "lit";
 import { LOCALES } from "../locales/index.js";
+import { deviceBridgeId, isUnified, readSlices, buildUnified, emptySlices } from "../shared/bridge.js";
 
 class HaCustomScheduleCardEditor extends LitElement {
   static properties = {
@@ -49,21 +50,31 @@ class HaCustomScheduleCardEditor extends LitElement {
       const scheduleId = scheduleResult.id;
       const scheduleEntityId = `schedule.${scheduleId}`;
 
-      const automationId = `bridge_${scheduleId}`;
-      const automationPayload = {
-        alias: `${this._t("bridgeAliasPrefix")}${routineName}`,
-        description: `[schedule-ui] ${routineName}${this._t("bridgeDescPattern")}`,
-        use_blueprint: {
-          path: "jewon-oh/schedule-bridge-blueprint.yaml",
-          input: {
-            schedule_helper: scheduleEntityId,
-            target_device: targetEntityId
-          }
-        }
-      };
+      // Upsert the ONE shared per-device unified bridge: add/refresh the
+      // schedule slice (helper-state on/off + HA-start re-sync) while
+      // preserving any turn-on/turn-off slices a sibling card added.
+      const automationId = deviceBridgeId(targetEntityId);
+      let existing = null;
+      try {
+        existing = await this.hass.callApi("GET", `config/automation/config/${automationId}`);
+      } catch (e) { /* not created yet */ }
 
+      const slices = existing && isUnified(existing)
+        ? readSlices(existing)
+        : emptySlices({ target: targetEntityId, friendly: friendlyName, alias: routineName });
+      slices.schedule = { entity: scheduleEntityId };
+      if (!slices.target) slices.target = targetEntityId;
+      if (!slices.friendly) slices.friendly = friendlyName;
+
+      const automationPayload = buildUnified(slices, existing || undefined);
       await this.hass.callApi("POST", `config/automation/config/${automationId}`, automationPayload);
-      console.log("[schedule-ui] automation create SUCCESS:", automationId);
+      console.log("[schedule-ui] unified bridge upserted:", automationId);
+
+      // Remove any superseded legacy blueprint bridge for this same device so
+      // it can't double-drive the device alongside the unified bridge. Only
+      // ever touches OUR auto-generated blueprint automations (matched by
+      // blueprint path + target_device), never user-authored automations.
+      await this._removeLegacyBlueprintBridge(targetEntityId, automationId);
 
       this._createResult = { success: true, entityId: scheduleEntityId };
 
@@ -76,6 +87,41 @@ class HaCustomScheduleCardEditor extends LitElement {
     } finally {
       this._isCreating = false;
       this.requestUpdate();
+    }
+  }
+
+  // Find and delete any auto-generated schedule-bridge-blueprint automation
+  // that targets this same device (other than the unified bridge we just
+  // wrote). Without this, the old blueprint and the new unified bridge would
+  // BOTH react to a schedule's on/off and double-drive the device. Strictly
+  // scoped: only automations whose use_blueprint.path is our blueprint AND
+  // whose target_device matches — never user automations.
+  async _removeLegacyBlueprintBridge(targetEntityId, keepId) {
+    try {
+      const autos = Object.values(this.hass.states || {})
+        .filter((s) => typeof s.entity_id === "string" && s.entity_id.startsWith("automation."));
+      for (const st of autos) {
+        const cid = st.attributes?.id;
+        if (!cid || cid === keepId) continue;
+        let cfg;
+        try {
+          cfg = await this.hass.callApi("GET", `config/automation/config/${cid}`);
+        } catch (e) { continue; }
+        const bp = cfg?.use_blueprint;
+        const isOurBlueprint = bp && typeof bp.path === "string" && bp.path.includes("schedule-bridge-blueprint");
+        if (!isOurBlueprint) continue;
+        const tgt = bp?.input?.target_device;
+        const matches = tgt === targetEntityId || (Array.isArray(tgt) && tgt.includes(targetEntityId));
+        if (!matches) continue;
+        try {
+          await this.hass.callApi("DELETE", `config/automation/config/${cid}`);
+          console.log("[schedule-ui] removed superseded blueprint bridge:", cid);
+        } catch (e) {
+          console.warn("[schedule-ui] could not remove legacy bridge", cid, e);
+        }
+      }
+    } catch (e) {
+      console.warn("[schedule-ui] legacy bridge cleanup skipped:", e);
     }
   }
 

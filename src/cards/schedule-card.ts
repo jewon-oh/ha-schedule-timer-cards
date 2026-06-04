@@ -4,9 +4,6 @@ import { LOCALES, detectLang } from "../locales/index.js";
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
-// 브릿지 자동화 ID 접두사
-const AUTOMATION_PREFIX = "schedule_bridge_";
-
 // v1.4 모델: 카드는 한 schedule을 단일 view로 다룬다.
 // - _activeDays: number[]  (0=Mon … 6=Sun) — 같은 시간 블록 세트가 적용되는 요일들
 // - _blocks    : {from,to}[] — 활성 요일들이 공유하는 단일 블록 세트
