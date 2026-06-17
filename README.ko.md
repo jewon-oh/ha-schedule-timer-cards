@@ -116,6 +116,10 @@ sui_on   → 켜기 시각 (요일별)
 sui_off  → 끄기 시각 (요일별)
 ```
 
+> HA 재시작 재동기화(`sui_sync`)는 스케쥴이 현재 on일 때 기기를 **켜기만** 하고,
+> 끄지는 않습니다 — 그래서 스케쥴과 무관한 재부팅(정전·메모리부족·HA 업데이트 등)으로
+> 기기가 꺼지지 않습니다. ([#15](https://github.com/jewon-oh/ha-schedule-timer-cards/issues/15))
+
 단일 `choose` 액션이 기기를 켜거나 끄며, 요일 조건은 각자의 시각 슬라이스에만
 적용됩니다. 전체 형태는 [examples/unified-bridge.yaml](examples/unified-bridge.yaml)을
 참고하세요. 밝기·색상·온도 등 추가 조정이 필요하면 **설정 → 자동화**에서 생성된

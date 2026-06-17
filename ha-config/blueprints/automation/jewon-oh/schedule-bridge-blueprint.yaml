@@ -25,9 +25,10 @@ trigger:
     entity_id: !input schedule_helper
     to: "off"
     id: "schedule_ended"
-  # HA 재시작·자동화 reload 직후 schedule 상태와 대상 기기를 동기화한다.
-  # 이게 없으면 자동화가 처음 등록될 때 schedule이 이미 on/off 상태라면
-  # transition을 잡지 못해 대상 기기가 stale 상태로 남는다.
+  # HA 재시작·자동화 reload 직후 schedule이 이미 on이면 대상 기기를 켜 stale을 막는다.
+  # 단, 시작 시 OFF 동기화는 하지 않는다 — 재부팅(정전·메모리부족·업데이트 등)만으로
+  # schedule이 off인 기기를 전부 꺼버리는 문제(#15)를 피하기 위함. 실제 off 전환은
+  # 아래 schedule_ended(state -> off) 트리거가 담당한다.
   - platform: homeassistant
     event: start
     id: "sync_on_start"
@@ -50,17 +51,11 @@ action:
             target:
               entity_id: !input target_device
 
-      # schedule이 종료(transition) 또는 시작 시 이미 off이면 → 대상 기기 끄기
+      # schedule이 종료(transition)되면 → 대상 기기 끄기.
+      # 시작 시(sync_on_start) OFF 동기화는 일부러 제외한다(#15).
       - conditions:
-          - or:
-              - condition: trigger
-                id: schedule_ended
-              - and:
-                  - condition: trigger
-                    id: sync_on_start
-                  - condition: state
-                    entity_id: !input schedule_helper
-                    state: "off"
+          - condition: trigger
+            id: schedule_ended
         sequence:
           - service: homeassistant.turn_off
             target:
