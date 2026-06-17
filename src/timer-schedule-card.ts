@@ -22,6 +22,6 @@ import "./cards/timer-card.js";
 import "./cards/turn-on-card.js";
 
 console.log(
-  "%c[ha-schedule-timer-cards] v1.8.3 loaded",
+  "%c[ha-schedule-timer-cards] v1.8.4 loaded",
   "color: #03a9f4; font-weight: bold; font-size: 14px;",
 );
