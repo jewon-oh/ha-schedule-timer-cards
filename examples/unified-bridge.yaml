@@ -67,18 +67,14 @@ action:
           - service: homeassistant.turn_on
             target:
               entity_id: switch.living_room
-      # OFF branch: schedule ended, OR HA-start while schedule off, OR an OFF
-      # time fired on an allowed weekday.
+      # OFF branch: schedule ended, OR an OFF time fired on an allowed weekday.
+      # NOTE: there is deliberately NO sui_sync arm here — HA-start must never
+      # turn a device OFF (an unrelated reboot would kill every off-scheduled
+      # device). The off edge is handled by the sui_sched_off state trigger. #15
       - conditions:
           - or:
               - condition: trigger
                 id: sui_sched_off
-              - and:
-                  - condition: trigger
-                    id: sui_sync
-                  - condition: state
-                    entity_id: schedule.living_room_light_x
-                    state: "off"
               - condition: trigger
                 id: sui_off
         sequence:

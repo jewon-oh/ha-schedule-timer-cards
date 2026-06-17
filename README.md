@@ -117,6 +117,10 @@ sui_on   → turn-on times  (per-weekday)
 sui_off  → turn-off times (per-weekday)
 ```
 
+> The HA-start re-sync (`sui_sync`) only ever turns a device **on** (when its
+> schedule is currently on) — it never turns one off, so an unrelated reboot
+> (power loss, OOM, HA update) can't switch off your devices. ([#15](https://github.com/jewon-oh/ha-schedule-timer-cards/issues/15))
+
 A single `choose` action turns the device on or off accordingly; weekday gates
 apply only to their own time slice. See [examples/unified-bridge.yaml](examples/unified-bridge.yaml)
 for the full shape. For brightness, color, temperature, or other tweaks, edit
