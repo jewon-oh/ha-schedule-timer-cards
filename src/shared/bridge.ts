@@ -9,7 +9,8 @@
 //
 // The automation carries three INDEPENDENT slices, each tagged by trigger id,
 // feeding a single `choose` action so each card reads only its own slice:
-//   - schedule slice: schedule-helper state on/off (+ HA-start re-sync)
+//   - schedule slice: schedule-helper state on/off (+ HA-start re-sync that
+//     only turns ON a stale-off device, never OFF — see #15)
 //   - turn-on slice:  discrete ON times (per-weekday)
 //   - turn-off slice: discrete OFF times (per-weekday)
 //
@@ -202,12 +203,19 @@ function buildBranch(slices, mode) {
   const arms = [];
   if (sched) {
     arms.push({ condition: "trigger", id: isOn ? TRIGGER_ID.SCHED_ON : TRIGGER_ID.SCHED_OFF });
-    arms.push({
-      and: [
-        { condition: "trigger", id: TRIGGER_ID.SYNC },
-        { condition: "state", entity_id: sched, state: isOn ? "on" : "off" },
-      ],
-    });
+    // HA-start re-sync (sui_sync) only ENABLES a stale-off device — it is added
+    // to the ON branch only, never the OFF branch. A restart must not turn a
+    // device OFF, or an unrelated reboot (power loss, OOM, HA update) would kill
+    // every device whose schedule is currently off. The real off edge is still
+    // handled by the schedule.* -> off state trigger (sui_sched_off). See #15.
+    if (isOn) {
+      arms.push({
+        and: [
+          { condition: "trigger", id: TRIGGER_ID.SYNC },
+          { condition: "state", entity_id: sched, state: "on" },
+        ],
+      });
+    }
   }
   arms.push(timeArm(isOn ? TRIGGER_ID.ON : TRIGGER_ID.OFF, slice?.weekdays));
   return {

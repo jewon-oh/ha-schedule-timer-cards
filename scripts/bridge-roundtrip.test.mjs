@@ -124,6 +124,20 @@ check("schedule arm present & ungated", !!schedArm);
 check("time-arm carries the weekday gate", !!timeArmAnd && timeArmAnd.and.some((x) => x.condition === "time"));
 check("sync arm has NO weekday gate", !!syncArm && !syncArm.and.some((x) => x.condition === "time"));
 
+console.log("HA-start re-sync only turns ON, never OFF (#15)");
+const offBranchG = gated.action[0].choose.find((b) => b.sequence[0].service.endsWith(".turn_off"));
+const offArmsG = Array.isArray(offBranchG.conditions[0]?.or)
+  ? offBranchG.conditions[0].or
+  : [offBranchG.conditions[0]];
+const offSyncArm = offArmsG.find(
+  (a) => Array.isArray(a?.and) && a.and.some((x) => x.condition === "trigger" && x.id === TRIGGER_ID.SYNC)
+);
+check("ON branch keeps its sync arm", !!syncArm);
+check("OFF branch has NO sync arm (no turn_off on restart)", !offSyncArm);
+check("OFF branch still has the sched_off state trigger arm",
+  offArmsG.some((a) => a?.condition === "trigger" && a.id === TRIGGER_ID.SCHED_OFF));
+check("sui_sync trigger still emitted (ON branch needs it)", triggerHasId(gated, TRIGGER_ID.SYNC));
+
 console.log("legacy automation parsing (for migration)");
 const legacyOn = {
   description: "[schedule-ui:turn-on] Kitchen",
