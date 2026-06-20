@@ -111,32 +111,73 @@ const gated = buildUnified({
   schedule: { entity: "schedule.k" },
 });
 const onBranch = gated.action[0].choose.find((b) => b.sequence[0].service.endsWith(".turn_on"));
-const orArms = onBranch.conditions[0].or;
-const schedArm = orArms.find((a) => a.condition === "trigger" && a.id === TRIGGER_ID.SCHED_ON);
+const onArms = branchArms(onBranch);
+const schedArm = onArms.find((a) => a.condition === "trigger" && a.id === TRIGGER_ID.SCHED_ON);
 // the time-arm is the `and` that gates the ON time trigger (not the sync `and`)
-const timeArmAnd = orArms.find(
-  (a) => Array.isArray(a.and) && a.and.some((x) => x.condition === "trigger" && x.id === TRIGGER_ID.ON)
-);
-const syncArm = orArms.find(
-  (a) => Array.isArray(a.and) && a.and.some((x) => x.condition === "trigger" && x.id === TRIGGER_ID.SYNC)
-);
+const timeArmAnd = findAndArm(onArms, TRIGGER_ID.ON);
+const syncArm = findAndArm(onArms, TRIGGER_ID.SYNC);
 check("schedule arm present & ungated", !!schedArm);
 check("time-arm carries the weekday gate", !!timeArmAnd && timeArmAnd.and.some((x) => x.condition === "time"));
 check("sync arm has NO weekday gate", !!syncArm && !syncArm.and.some((x) => x.condition === "time"));
 
 console.log("HA-start re-sync only turns ON, never OFF (#15)");
 const offBranchG = gated.action[0].choose.find((b) => b.sequence[0].service.endsWith(".turn_off"));
-const offArmsG = Array.isArray(offBranchG.conditions[0]?.or)
-  ? offBranchG.conditions[0].or
-  : [offBranchG.conditions[0]];
-const offSyncArm = offArmsG.find(
-  (a) => Array.isArray(a?.and) && a.and.some((x) => x.condition === "trigger" && x.id === TRIGGER_ID.SYNC)
-);
+const offArmsG = branchArms(offBranchG);
 check("ON branch keeps its sync arm", !!syncArm);
-check("OFF branch has NO sync arm (no turn_off on restart)", !offSyncArm);
-check("OFF branch still has the sched_off state trigger arm",
-  offArmsG.some((a) => a?.condition === "trigger" && a.id === TRIGGER_ID.SCHED_OFF));
+// referencesTrigger matches a SYNC arm whether bare OR `and`-wrapped, so a
+// regression that re-adds it on the OFF branch in ANY shape fails this check.
+check("OFF branch has NO sync arm (no turn_off on restart)", !referencesTrigger(offArmsG, TRIGGER_ID.SYNC));
+check("OFF branch still has the sched_off state trigger arm", referencesTrigger(offArmsG, TRIGGER_ID.SCHED_OFF));
 check("sui_sync trigger still emitted (ON branch needs it)", triggerHasId(gated, TRIGGER_ID.SYNC));
+
+console.log("migration: a pre-#15 bridge with an OFF-branch sync arm is healed on rebuild");
+// An automation generated BEFORE #15 carried a sui_sync arm on the OFF branch
+// (state:"off"). The upgrade path is a plain readSlices()->buildUnified() on a
+// fresh GET, which must (a) strip that stale arm and (b) not mis-read the OFF
+// weekday gate off the extra arm.
+const preFix = {
+  alias: "Living",
+  description: "[schedule-ui:bridge] Living",
+  mode: "queued",
+  trigger: [
+    { platform: "state", entity_id: "schedule.living_x", to: "on", id: TRIGGER_ID.SCHED_ON },
+    { platform: "state", entity_id: "schedule.living_x", to: "off", id: TRIGGER_ID.SCHED_OFF },
+    { platform: "homeassistant", event: "start", id: TRIGGER_ID.SYNC },
+    { platform: "time", at: "07:00:00", id: TRIGGER_ID.ON },
+    { platform: "time", at: "23:00:00", id: TRIGGER_ID.OFF },
+  ],
+  condition: [],
+  action: [{
+    choose: [
+      {
+        conditions: [{ or: [
+          { condition: "trigger", id: TRIGGER_ID.SCHED_ON },
+          { and: [{ condition: "trigger", id: TRIGGER_ID.SYNC }, { condition: "state", entity_id: "schedule.living_x", state: "on" }] },
+          { condition: "trigger", id: TRIGGER_ID.ON },
+        ] }],
+        sequence: [{ service: "homeassistant.turn_on", target: { entity_id: "switch.living" } }],
+      },
+      {
+        conditions: [{ or: [
+          { condition: "trigger", id: TRIGGER_ID.SCHED_OFF },
+          { and: [{ condition: "trigger", id: TRIGGER_ID.SYNC }, { condition: "state", entity_id: "schedule.living_x", state: "off" }] },
+          { and: [{ condition: "trigger", id: TRIGGER_ID.OFF }, { condition: "time", weekday: ["sat", "sun"] }] },
+        ] }],
+        sequence: [{ service: "homeassistant.turn_off", target: { entity_id: "switch.living" } }],
+      },
+    ],
+  }],
+};
+const healed = buildUnified(readSlices(preFix), preFix);
+const healedBack = readSlices(healed);
+const healedOff = healed.action[0].choose.find((b) => b.sequence[0].service.endsWith(".turn_off"));
+const healedOn = healed.action[0].choose.find((b) => b.sequence[0].service.endsWith(".turn_on"));
+check("migration: stale OFF sync arm stripped on rebuild", !referencesTrigger(branchArms(healedOff), TRIGGER_ID.SYNC));
+check("migration: OFF weekday gate not widened (stays sat/sun)", eq(healedBack.off.weekdays, ["sat", "sun"]));
+check("migration: OFF time preserved", eq(healedBack.off.times, ["23:00:00"]));
+check("migration: ON slice preserved", eq(healedBack.on.times, ["07:00:00"]) && eq(healedBack.on.weekdays, ["mon","tue","wed","thu","fri","sat","sun"]));
+check("migration: schedule entity preserved", healedBack.schedule.entity === "schedule.living_x");
+check("migration: ON branch still re-syncs ON", referencesTrigger(branchArms(healedOn), TRIGGER_ID.SYNC));
 
 console.log("legacy automation parsing (for migration)");
 const legacyOn = {
@@ -332,6 +373,33 @@ check("both deleted on union", planUnion.toDelete.includes("a") && planUnion.toD
 
 function triggerHasId(cfg, id) {
   return (cfg.trigger || []).some((t) => t.id === id);
+}
+
+// Flatten a choose-branch's conditions into its arm list, whether the branch
+// holds a single bare arm or an `{ or: [...] }`. Mirrors how readSlices reads a
+// branch, so ON and OFF branches are inspected the same way.
+function branchArms(branch) {
+  const c = branch?.conditions?.[0];
+  return Array.isArray(c?.or) ? c.or : c ? [c] : [];
+}
+
+// Find the `and`-wrapped arm that gates the given trigger id (e.g. trigger+time
+// or trigger+state). Returns undefined for a bare-trigger arm.
+function findAndArm(arms, id) {
+  return arms.find(
+    (a) => Array.isArray(a?.and) && a.and.some((x) => x.condition === "trigger" && x.id === id)
+  );
+}
+
+// Does ANY arm reference the given trigger id — bare `{condition:"trigger",id}`
+// OR inside an `and`? Behavior- (not shape-) based, so an assertion built on it
+// catches a regression that re-adds the trigger in either form.
+function referencesTrigger(arms, id) {
+  return arms.some(
+    (a) =>
+      (a?.condition === "trigger" && a.id === id) ||
+      (Array.isArray(a?.and) && a.and.some((x) => x.condition === "trigger" && x.id === id))
+  );
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
