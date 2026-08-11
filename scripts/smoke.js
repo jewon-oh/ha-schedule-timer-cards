@@ -59,6 +59,7 @@ async function checkPage(page, urlPath, expectedTag) {
     for (const target of [
       { url: '/dev/preview.html', tag: 'ha-custom-schedule-card' },
       { url: '/dev/preview-timer.html', tag: 'ha-custom-timer-card' },
+      { url: '/dev/preview-related.html', tag: 'ha-custom-related-card' },
     ]) {
       const page = await ctx.newPage();
       results.push(await checkPage(page, target.url, target.tag));

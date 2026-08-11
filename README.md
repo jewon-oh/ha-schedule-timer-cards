@@ -97,12 +97,34 @@ title: Living Room Light               # card title (optional)
 
 ### Available cards
 
-| Card                   | Type                              | Description                                                  |
-|------------------------|-----------------------------------|--------------------------------------------------------------|
-| Schedule Card          | `custom:ha-custom-schedule-card`  | Vertical 24h weekly timeline, daily merged tab               |
-| Timer Card             | `custom:ha-custom-timer-card`     | Countdown timer with on/off direction picker (defaults to device state) |
-| Turn-On Schedule Card  | `custom:ha-custom-turn-on-card`   | Time + weekday picker; turns a device **on** at each time    |
-| Turn-Off Schedule Card | `custom:ha-custom-turn-off-card`  | Time + weekday picker; turns a device **off** at each time   |
+| Card                     | Type                             | Description                                                             |
+|--------------------------|----------------------------------|-------------------------------------------------------------------------|
+| Schedule Card            | `custom:ha-custom-schedule-card` | Vertical 24h weekly timeline, daily merged tab                          |
+| Timer Card               | `custom:ha-custom-timer-card`    | Countdown timer with on/off direction picker (defaults to device state) |
+| Turn-On Schedule Card    | `custom:ha-custom-turn-on-card`  | Time + weekday picker; turns a device **on** at each time               |
+| Turn-Off Schedule Card   | `custom:ha-custom-turn-off-card` | Time + weekday picker; turns a device **off** at each time              |
+| Related Automations Card | `custom:ha-custom-related-card`  | Lists every automation referencing a device; taps through to its editor |
+
+#### Related Automations Card
+
+```yaml
+type: custom:ha-custom-related-card
+entity: switch.living_room        # or: device_id: <device registry id>
+title: Related automations        # optional
+```
+
+Read-only lookup — it never writes an automation. The list comes from Home
+Assistant's own `search/related` websocket command (the one behind the device
+page's related section), so automations are matched by their **actual config
+references**, not by a naming convention or labels: the device is found whether
+it appears in a trigger, a condition or an action. Tapping a row opens
+`/config/automation/edit/<id>`; the toggle enables/disables the automation in
+place. YAML automations carry no config id and fall back to the more-info
+dialog.
+
+Because it reports references rather than intent, an automation that only reads
+the device in a condition is listed next to one that switches it. That is the
+intended behaviour for a "what touches this device?" view.
 
 ## How It Works
 

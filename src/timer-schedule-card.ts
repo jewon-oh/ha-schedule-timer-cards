@@ -20,6 +20,7 @@ import "./editors/turn-on-editor.js";
 import "./cards/schedule-card.js";
 import "./cards/timer-card.js";
 import "./cards/turn-on-card.js";
+import "./cards/related-card.js";
 
 console.log(
   "%c[ha-schedule-timer-cards] v1.8.4 loaded",

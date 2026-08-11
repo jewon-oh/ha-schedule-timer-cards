@@ -96,12 +96,32 @@ title: 거실 전등 일정                  # 카드 제목 (선택)
 
 ### 제공 카드 종류
 
-| 카드                   | 타입                              | 설명                                                  |
-|------------------------|-----------------------------------|-------------------------------------------------------|
-| Schedule Card          | `custom:ha-custom-schedule-card`  | 세로 24시간 주간 타임라인, 요일 통합 제어             |
-| Timer Card             | `custom:ha-custom-timer-card`     | 카운트다운 타이머, 켜기/끄기 방향 선택(기본값=기기 상태) |
-| Turn-On Schedule Card  | `custom:ha-custom-turn-on-card`   | 시각 + 요일 선택기, 지정 시각마다 기기 **켜기**       |
-| Turn-Off Schedule Card | `custom:ha-custom-turn-off-card`  | 시각 + 요일 선택기, 지정 시각마다 기기 **끄기**       |
+| 카드                     | 타입                             | 설명                                                      |
+|--------------------------|----------------------------------|-----------------------------------------------------------|
+| Schedule Card            | `custom:ha-custom-schedule-card` | 세로 24시간 주간 타임라인, 요일 통합 제어                 |
+| Timer Card               | `custom:ha-custom-timer-card`    | 카운트다운 타이머, 켜기/끄기 방향 선택(기본값=기기 상태)  |
+| Turn-On Schedule Card    | `custom:ha-custom-turn-on-card`  | 시각 + 요일 선택기, 지정 시각마다 기기 **켜기**           |
+| Turn-Off Schedule Card   | `custom:ha-custom-turn-off-card` | 시각 + 요일 선택기, 지정 시각마다 기기 **끄기**           |
+| Related Automations Card | `custom:ha-custom-related-card`  | 기기를 참조하는 자동화를 모두 나열하고 편집 화면으로 이동 |
+
+#### Related Automations Card
+
+```yaml
+type: custom:ha-custom-related-card
+entity: switch.living_room        # 또는: device_id: <기기 레지스트리 id>
+title: 연결된 자동화               # 선택
+```
+
+조회 전용 카드로, 자동화를 절대 수정하지 않습니다. 목록은 HA 자체의
+`search/related` 웹소켓 명령(기기 페이지의 "관련 항목"을 만드는 그 명령)에서
+가져오므로, 이름 규칙이나 라벨이 아니라 **실제 자동화 설정의 참조**를 기준으로
+찾습니다. 트리거·조건·동작 어디에 등장하든 잡힙니다. 행을 누르면
+`/config/automation/edit/<id>` 로 이동하고, 토글은 자동화를 그 자리에서
+켜고 끕니다. YAML 자동화는 설정 id가 없어 상세 정보 대화상자로 대체됩니다.
+
+참조 여부를 보여줄 뿐 의도를 구분하지는 않으므로, 기기를 조건으로만 읽는
+자동화도 기기를 켜고 끄는 자동화와 나란히 표시됩니다. "이 기기를 건드리는
+것이 무엇인가"를 보는 뷰이므로 의도된 동작입니다.
 
 ## 동작 원리
 

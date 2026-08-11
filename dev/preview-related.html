@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HA Custom Related Card Preview</title>
+  <style>
+    body {
+      background-color: #1c1c1c;
+      color: #fff;
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      --primary-color: #03a9f4;
+      --card-background-color: rgba(255,255,255,0.05);
+      --divider-color: rgba(255,255,255,0.1);
+      --primary-text-color: #ffffff;
+      --secondary-text-color: #a0a0a0;
+      --error-color: #f44336;
+    }
+
+    #preview-container {
+      width: 100%;
+      max-width: 500px;
+      margin-top: 40px;
+      padding: 20px;
+    }
+
+    .toolbar {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 10px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    ha-icon { display: inline-block; width: 24px; height: 24px; }
+  </style>
+  <script type="module" src="../timer-schedule-card.js"></script>
+</head>
+<body>
+  <div id="preview-container">
+    <div class="toolbar">
+      <span>Mock HA Environment - Related</span>
+      <select id="langSwitch" onchange="switchLang(this.value)">
+        <option value="ko">한국어 (KO)</option>
+        <option value="en">English (EN)</option>
+      </select>
+    </div>
+
+    <ha-custom-related-card id="myCard"></ha-custom-related-card>
+  </div>
+
+  <script>
+    class HaIcon extends HTMLElement {
+      connectedCallback() {
+        const icon = this.getAttribute('icon') || '';
+        let emoji = '⚙️';
+        if (icon.includes('robot')) emoji = '🤖';
+        if (icon.includes('refresh')) emoji = '🔄';
+        if (icon.includes('chevron')) emoji = '›';
+        if (icon.includes('toggle-switch-off')) emoji = '⭘';
+        else if (icon.includes('toggle-switch')) emoji = '🟢';
+        this.innerHTML = `<span style="font-size: 1.2rem; cursor: pointer;">${emoji}</span>`;
+      }
+    }
+    customElements.define('ha-icon', HaIcon);
+
+    // Mirrors the real shapes: search/related returns entity_ids, and each
+    // automation carries its config id in attributes.id (YAML ones do not).
+    const hass = {
+      language: 'ko',
+      states: {
+        'automation.taimeo_beurisji_kotingsil1_hwanpunggi': {
+          entity_id: 'automation.taimeo_beurisji_kotingsil1_hwanpunggi',
+          state: 'on',
+          attributes: {
+            friendly_name: '타이머 브릿지: 코팅실1 환풍기',
+            id: 'timer_bridge_kotingsil1_hwanpunggi_taimeo',
+            last_triggered: new Date(Date.now() - 45 * 60000).toISOString(),
+          },
+        },
+        'automation.kotingsil1_hwanpunggi_yeyag': {
+          entity_id: 'automation.kotingsil1_hwanpunggi_yeyag',
+          state: 'on',
+          attributes: {
+            friendly_name: '코팅실1 환풍기 예약',
+            id: 'sui_bridge_switch_0xa49e69fffe3b29ca',
+            last_triggered: null,
+          },
+        },
+        'automation.kotingsil1_hwanpunggi_gonggijil_yeondong': {
+          entity_id: 'automation.kotingsil1_hwanpunggi_gonggijil_yeondong',
+          state: 'off',
+          attributes: {
+            friendly_name: '코팅실1 환풍기 공기질 연동',
+            id: 'air_interlock_kotingsil1_hwanpunggi',
+            last_triggered: new Date(Date.now() - 3 * 3600000).toISOString(),
+          },
+        },
+      },
+      callWS: async (msg) => {
+        console.log('Mock callWS ->', msg);
+        if (msg.type === 'search/related') {
+          return {
+            device: ['0444bfee9a72ea1023cde5a1ecefcb38'],
+            integration: ['mqtt'],
+            automation: [
+              'automation.taimeo_beurisji_kotingsil1_hwanpunggi',
+              'automation.kotingsil1_hwanpunggi_yeyag',
+              'automation.kotingsil1_hwanpunggi_gonggijil_yeondong',
+            ],
+          };
+        }
+        return {};
+      },
+      callService: (domain, service, data) => {
+        console.log(`Mock Call Service -> ${domain}.${service}`, data);
+      },
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const card = document.getElementById('myCard');
+      card.setConfig({
+        type: "custom:ha-custom-related-card",
+        entity: "switch.0xa49e69fffe3b29ca",
+      });
+      card.hass = { ...hass };
+    });
+
+    window.switchLang = function (lang) {
+      hass.language = lang;
+      document.getElementById('myCard').hass = { ...hass };
+    }
+  </script>
+</body>
+</html>

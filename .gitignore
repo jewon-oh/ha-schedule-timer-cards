@@ -17,6 +17,13 @@ ha-config/blueprints/automation/*
 !ha-config/dashboards/
 !ha-config/dashboards/**
 
-# Local dashboard transform backups (scripts/*-ui.js write these before edits)
+# The user's live Lovelace dashboard. This is a personal working copy mirrored
+# from the live HA instance (which is the source of truth) — it must never be
+# committed to this repo. Version control for it lives in a separate private
+# repo. Untracked deliberately: see the "release:" history for when it left.
+ha_dashboard.yaml
+
+# Local dashboard transform backups (scripts/*-ui.js and live-sync snapshots)
 ha_dashboard.yaml.bak
 ha_dashboard.yaml.before-*
+ha_*backup*.json
